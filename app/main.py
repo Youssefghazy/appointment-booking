@@ -18,6 +18,8 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app import booking_service, config, db
 
+_WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,15 +36,46 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 
-def _build_calendar_months(available_dates: list[date], selected_date: date | None) -> list[dict]:
-    """Builds one month-grid per calendar month that has at least one
-    bookable day, so the booking page can show a real "pick a day" month
-    calendar instead of a flat list. This is a display concern only -- it
-    doesn't change what a slot *is*, so it lives here in the web layer
-    rather than in booking_service.py.
+def _long_date(d: date) -> str:
+    """Formats like 'Wednesday, August 19, 2026' -- built manually rather
+    than with a no-leading-zero strftime flag (`%-d`) because that flag
+    isn't portable to Windows, and this app is meant to run there too.
+    """
+    return f"{d.strftime('%A, %B')} {d.day}, {d.year}"
+
+
+def _format_slot(slot_start_str: str) -> str:
+    """Jinja filter: the raw stored `slot_start` ("2026-08-19T09:00:00")
+    into something a customer or owner would actually want to read
+    ("Wednesday, August 19 at 09:00 AM"). Registered as `format_slot`
+    below so every template shows times the same way.
+    """
+    dt = datetime.strptime(slot_start_str, booking_service.SLOT_FORMAT)
+    return f"{dt.strftime('%A, %B')} {dt.day} at {dt.strftime('%I:%M %p')}"
+
+
+templates.env.filters["format_slot"] = _format_slot
+
+
+def _build_calendar(available_dates: list[date], selected_date: date | None) -> dict:
+    """Builds one weekday-only month-grid per calendar month that has at
+    least one bookable day, so the booking page can show a real "pick a
+    day" month calendar instead of a flat list. This is a display
+    concern only -- it doesn't change what a slot *is*, so it lives here
+    in the web layer rather than in booking_service.py.
+
+    Only the weekdays that are ever business days get a column -- with
+    the default Mon-Fri config that means Saturday and Sunday are
+    dropped entirely instead of rendering as two permanently-empty
+    columns every single week.
     """
     if not available_dates:
-        return []
+        return {"weekday_labels": [], "months": []}
+
+    # Which of the 7 weekday columns (Mon=0..Sun=6) are ever business
+    # days, in order -- e.g. [0, 1, 2, 3, 4] for the default Mon-Fri.
+    weekday_positions = sorted(set(config.BUSINESS_DAYS))
+    weekday_labels = [_WEEKDAY_NAMES[i] for i in weekday_positions]
 
     dates_by_month: dict[tuple[int, int], set[date]] = {}
     for d in available_dates:
@@ -63,17 +96,18 @@ def _build_calendar_months(available_dates: list[date], selected_date: date | No
             weeks.append(
                 [
                     {
-                        "iso": d.isoformat(),
-                        "day_number": d.day,
-                        "in_month": d.month == month,
-                        "has_slots": d in available_in_month,
-                        "is_selected": d == selected_date,
+                        "iso": week[i].isoformat(),
+                        "day_number": week[i].day,
+                        "aria_label": _long_date(week[i]),
+                        "in_month": week[i].month == month,
+                        "has_slots": week[i] in available_in_month,
+                        "is_selected": week[i] == selected_date,
                     }
-                    for d in week
+                    for i in weekday_positions
                 ]
             )
         months.append({"label": date(year, month, 1).strftime("%B %Y"), "weeks": weeks})
-    return months
+    return {"weekday_labels": weekday_labels, "months": months}
 
 
 def _render_booking_page(
@@ -107,11 +141,14 @@ def _render_booking_page(
         if candidate in grouped:
             selected_date = candidate
 
+    calendar = _build_calendar(available_dates, selected_date)
+
     return templates.TemplateResponse(
         request,
         "booking.html",
         {
-            "calendar_months": _build_calendar_months(available_dates, selected_date),
+            "calendar_months": calendar["months"],
+            "weekday_labels": calendar["weekday_labels"],
             "selected_date": selected_date,
             "selected_slots": grouped.get(selected_date, []) if selected_date else [],
             "has_any_slots": bool(available_dates),

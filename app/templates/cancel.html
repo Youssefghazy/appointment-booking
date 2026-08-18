@@ -2,19 +2,28 @@
 {% block title %}Cancel booking{% endblock %}
 {% block content %}
 {% if just_cancelled %}
+<div class="card status-card status-card--success">
+    <p class="status-badge status-badge--success">Cancelled</p>
     <h1>Booking cancelled</h1>
-    <p class="success">Your booking has been cancelled and the slot is available again.</p>
-    <p><a href="/">&larr; Back to booking page</a></p>
+    <p class="status-lead">Your booking has been cancelled and the slot is available again.</p>
+    <p class="back-link"><a href="/">&larr; Back to booking page</a></p>
+</div>
 {% elif already_done %}
+<div class="card">
     <h1>Link no longer valid</h1>
     <p>This cancellation link has already been used or doesn't match a booking. No changes were made.</p>
-    <p><a href="/">&larr; Back to booking page</a></p>
+    <p class="back-link"><a href="/">&larr; Back to booking page</a></p>
+</div>
 {% else %}
+<div class="card">
     <h1>Cancel this booking?</h1>
-    <p>You're about to cancel your booking for <strong>{{ booking['slot_start'] | replace('T', ' at ') }}</strong>.</p>
-    <form method="post" action="/cancel/{{ booking['cancel_token'] }}">
-        <button type="submit">Yes, cancel my booking</button>
-    </form>
-    <p><a href="/">No, keep my booking</a></p>
+    <p>You're about to cancel your appointment for <strong>{{ booking['slot_start'] | format_slot }}</strong>. This can't be undone.</p>
+    <div class="status-actions">
+        <form method="post" action="/cancel/{{ booking['cancel_token'] }}">
+            <button type="submit" class="btn-danger">Yes, cancel my booking</button>
+        </form>
+        <a class="btn btn-secondary" href="/">No, keep my booking</a>
+    </div>
+</div>
 {% endif %}
 {% endblock %}

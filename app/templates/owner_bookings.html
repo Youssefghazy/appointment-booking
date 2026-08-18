@@ -1,38 +1,41 @@
 {% extends "base.html" %}
 {% block title %}Upcoming bookings{% endblock %}
 {% block content %}
-<h1>Upcoming bookings</h1>
+<div class="page-intro page-intro--row">
+    <h1>Upcoming bookings</h1>
+    <form method="post" action="/owner/logout" class="logout-form">
+        <button type="submit" class="btn-secondary">Log out</button>
+    </form>
+</div>
 
-<form method="post" action="/owner/logout" class="logout-form">
-    <button type="submit">Log out</button>
-</form>
-
-{% if not bookings %}
-<p>No upcoming bookings yet.</p>
-{% else %}
-<table class="bookings-table">
-    <thead>
-        <tr>
-            <th>When</th>
-            <th>Name</th>
-            <th>Email</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for booking in bookings %}
-        <tr>
-            <td>{{ booking['slot_start'] | replace('T', ' at ') }}</td>
-            <td>{{ booking['customer_name'] }}</td>
-            <td>{{ booking['customer_email'] or '—' }}</td>
-            <td>
-                <form method="post" action="/owner/bookings/{{ booking['id'] }}/cancel">
-                    <button type="submit">Cancel</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endif %}
+<div class="card">
+    {% if not bookings %}
+    <p class="empty-state">No upcoming bookings yet.</p>
+    {% else %}
+    <table class="bookings-table">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for booking in bookings %}
+            <tr>
+                <td>{{ booking['slot_start'] | format_slot }}</td>
+                <td>{{ booking['customer_name'] }}</td>
+                <td>{{ booking['customer_email'] or '—' }}</td>
+                <td class="bookings-table__action">
+                    <form method="post" action="/owner/bookings/{{ booking['id'] }}/cancel">
+                        <button type="submit" class="btn-danger btn-small">Cancel</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
 {% endblock %}

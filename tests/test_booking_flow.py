@@ -39,7 +39,7 @@ def test_successful_booking_returns_confirmation(client):
 
     confirmation = client.get(location)
     assert confirmation.status_code == 200
-    assert "You&#39;re booked" in confirmation.text or "You're booked" in confirmation.text
+    assert "You&#39;re all set" in confirmation.text or "You're all set" in confirmation.text
     assert "Cancel this booking" in confirmation.text
 
     # The booked slot must no longer be offered to other customers.

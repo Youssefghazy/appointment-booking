@@ -2,19 +2,26 @@
 {% block title %}Booking confirmed{% endblock %}
 {% block content %}
 {% if not booking %}
-<h1>Booking not found</h1>
-<p>We couldn't find a booking for this link. <a href="/">Book a new appointment</a>.</p>
+<div class="card">
+    <h1>Booking not found</h1>
+    <p>We couldn't find a booking for this link. <a href="/">Book a new appointment</a>.</p>
+</div>
 {% else %}
-<h1>Booking confirmed</h1>
-<p class="success">You're booked for <strong>{{ booking['slot_start'] | replace('T', ' at ') }}</strong>.</p>
-<p>We saved your name (and email, if you gave one) with this booking.</p>
+<div class="card status-card status-card--success">
+    <p class="status-badge status-badge--success">Confirmed</p>
+    <h1>You're all set</h1>
+    <p class="status-lead">Your appointment is booked for <strong>{{ booking['slot_start'] | format_slot }}</strong>.</p>
+    <p class="status-note">We saved your name (and email, if you gave one) with this booking.</p>
 
-<p>
-    Changed your mind? You can cancel this booking any time using this link
-    (save it somewhere, it isn't emailed to you):
-</p>
-<p><a href="/cancel/{{ booking['cancel_token'] }}">Cancel this booking</a></p>
+    <div class="status-actions">
+        <p>
+            Changed your mind? You can cancel any time using this link
+            (save it somewhere &mdash; it isn't emailed to you):
+        </p>
+        <a class="btn btn-secondary" href="/cancel/{{ booking['cancel_token'] }}">Cancel this booking</a>
+    </div>
 
-<p><a href="/">&larr; Back to booking page</a></p>
+    <p class="back-link"><a href="/">&larr; Back to booking page</a></p>
+</div>
 {% endif %}
 {% endblock %}

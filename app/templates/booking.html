@@ -11,7 +11,9 @@
 {% endif %}
 
 {% if not has_any_slots %}
-<p>There are no open slots in the next few weeks. Please check back later.</p>
+<div class="card">
+    <p>There are no open slots in the next few weeks. Please check back later.</p>
+</div>
 {% else %}
 <form method="post" action="/book" class="booking-form">
     <fieldset>
@@ -20,21 +22,17 @@
             {% for month in calendar_months %}
             <div class="calendar-month">
                 <h3 class="calendar-month-label">{{ month.label }}</h3>
-                <div class="calendar-grid">
-                    <span class="calendar-weekday">Mon</span>
-                    <span class="calendar-weekday">Tue</span>
-                    <span class="calendar-weekday">Wed</span>
-                    <span class="calendar-weekday">Thu</span>
-                    <span class="calendar-weekday">Fri</span>
-                    <span class="calendar-weekday">Sat</span>
-                    <span class="calendar-weekday">Sun</span>
+                <div class="calendar-grid" style="grid-template-columns: repeat({{ weekday_labels|length }}, 1fr);">
+                    {% for label in weekday_labels %}
+                    <span class="calendar-weekday">{{ label }}</span>
+                    {% endfor %}
                     {% for week in month.weeks %}
                     {% for day in week %}
                     {% if day.has_slots %}
-                    <a href="/?day={{ day.iso }}"
+                    <a href="/?day={{ day.iso }}#times" aria-label="{{ day.aria_label }}"
                        class="calendar-day has-slots{{ ' is-selected' if day.is_selected else '' }}">{{ day.day_number }}</a>
                     {% else %}
-                    <span class="calendar-day{{ '' if day.in_month else ' is-outside-month' }}">{{ day.day_number }}</span>
+                    <span class="calendar-day{{ '' if day.in_month else ' is-outside-month' }}" aria-hidden="true">{{ day.day_number }}</span>
                     {% endif %}
                     {% endfor %}
                     {% endfor %}
@@ -46,7 +44,7 @@
         {% if not selected_date %}
         <p class="calendar-hint">Choose a day above to see its open times.</p>
         {% else %}
-        <div class="time-panel">
+        <div class="time-panel" id="times">
             <p class="selected-day-label">Times for {{ selected_date.strftime('%A, %B %d') }}</p>
             {% if not selected_slots %}
             <p>No open times left on this day. Pick another day above.</p>

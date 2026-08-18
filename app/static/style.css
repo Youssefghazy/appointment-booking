@@ -1,3 +1,18 @@
+/* Opt-in to the browser's built-in cross-document View Transitions API.
+   Supporting browsers (Chromium-based, e.g. Chrome/Edge) get a smooth
+   cross-fade between full page navigations instead of an abrupt white
+   flash -- with zero JavaScript and zero build step. Unsupported
+   browsers just ignore this at-rule and navigate normally, so there's
+   no downside either way. */
+@view-transition {
+    navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 0.16s;
+}
+
 :root {
     color-scheme: light;
     --fg: #1a1a1a;
@@ -7,7 +22,9 @@
     --accent-dark: #1f4685;
     --accent-soft: #eaf0fb;
     --error: #b0262a;
+    --error-soft: #fdecec;
     --success: #1f7a3a;
+    --success-soft: #e5f4ea;
     --bg: #f4f5f7;
     --surface: #ffffff;
     --shadow-sm: 0 1px 2px rgba(20, 20, 30, 0.04), 0 1px 1px rgba(20, 20, 30, 0.03);
@@ -54,6 +71,14 @@ main {
 
 .page-intro { margin-bottom: 1.5rem; }
 
+.page-intro--row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.page-intro--row h1 { margin: 0; }
+
 h1 {
     margin: 0 0 0.35rem;
     font-size: 1.6rem;
@@ -65,6 +90,55 @@ h1 {
     color: var(--muted);
     font-size: 0.98rem;
 }
+
+/* A plain content card -- used for anything that isn't already a
+   <fieldset> (confirmation, cancellation, owner login, owner
+   dashboard) so every page in the app shares the same visual language
+   instead of the booking page being the only "designed" one. */
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.75rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.card--narrow { max-width: 380px; margin: 1.5rem auto 0; }
+
+/* A card with a colored top accent + small pill badge, for outcome
+   screens (booking confirmed, booking cancelled). */
+.status-card { border-top: 4px solid var(--accent); }
+.status-card--success { border-top-color: var(--success); }
+
+.status-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent-dark);
+    margin: 0 0 0.85rem;
+}
+.status-badge--success { background: var(--success-soft); color: var(--success); }
+
+.status-lead { font-size: 1.05rem; margin: 0 0 0.5rem; }
+.status-note { color: var(--muted); font-size: 0.9rem; margin: 0; }
+
+.status-actions {
+    margin: 1.25rem 0 0;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+}
+.status-actions p { margin: 0 0 0.75rem; color: var(--muted); font-size: 0.9rem; }
+
+.back-link { margin: 1.25rem 0 0; font-size: 0.9rem; }
+.back-link a { color: var(--accent); text-decoration: none; }
+.back-link a:hover { text-decoration: underline; }
+
+.empty-state { color: var(--muted); text-align: center; padding: 0.5rem 0; margin: 0; }
 
 fieldset {
     border: 1px solid var(--border);
@@ -114,9 +188,12 @@ input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focu
 
 /* A stack of real month calendars -- one per month that has any open
    day -- so picking a day feels like picking a day, not scrolling a
-   list. Each day is a plain link (?day=YYYY-MM-DD); no JS needed. Past
-   weeks with nothing bookable are trimmed server-side before this ever
-   renders, so there's no clutter to scroll past. */
+   list. Each day is a plain link (?day=YYYY-MM-DD); no JS needed. Only
+   the weekdays that are ever business days get a column (Sat/Sun are
+   dropped entirely for the default Mon-Fri schedule, instead of
+   rendering as permanently-empty columns), and past weeks with nothing
+   bookable are trimmed server-side, so there's no clutter to scroll
+   past either direction. */
 .calendar-list {
     display: flex;
     flex-direction: column;
@@ -133,7 +210,6 @@ input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focu
 
 .calendar-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
     gap: 0.4rem;
 }
 
@@ -207,6 +283,12 @@ input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focu
     padding-top: 1.1rem;
     border-top: 1px solid var(--border);
     animation: fadeSlideIn 0.25s ease-out;
+    /* The day links below point at "#times" so picking a day (which can
+       be a long scroll past however many months are showing) jumps
+       straight to the times instead of leaving the customer to hunt for
+       what just appeared. This keeps a little breathing room above it
+       when the browser snaps to the anchor. */
+    scroll-margin-top: 1rem;
 }
 
 .selected-day-label {
@@ -274,7 +356,14 @@ input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focu
     outline-offset: 2px;
 }
 
-button {
+/* Buttons: `button` and `.btn` (for anchors that need to look like a
+   button, e.g. "Cancel this booking" on the confirmation page) share
+   the same base -- primary/accent by default. `.btn-secondary` and
+   `.btn-danger` override it for lower-emphasis and destructive actions
+   respectively, so a "Cancel booking" action never looks visually
+   identical to "Confirm booking". */
+button, .btn {
+    display: inline-block;
     background: var(--accent);
     color: white;
     border: none;
@@ -282,18 +371,33 @@ button {
     padding: 0.7rem 1.4rem;
     font-size: 1rem;
     font-weight: 600;
+    text-align: center;
+    text-decoration: none;
     cursor: pointer;
     box-shadow: var(--shadow-sm);
     transition: background 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
-button:hover { background: var(--accent-dark); box-shadow: var(--shadow-md); transform: translateY(-1px); }
-button:active { transform: translateY(0); }
+button:hover, .btn:hover { background: var(--accent-dark); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+button:active, .btn:active { transform: translateY(0); }
+
+.btn-secondary {
+    background: var(--surface);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    box-shadow: none;
+}
+.btn-secondary:hover { background: #f0f1f3; border-color: #c4c4c4; color: var(--fg); }
+
+.btn-danger { background: var(--error); }
+.btn-danger:hover { background: #8f1e21; }
+
+.btn-small { padding: 0.4rem 0.85rem; font-size: 0.85rem; }
 
 .error {
     color: var(--error);
     font-weight: 600;
-    background: #fdecec;
+    background: var(--error-soft);
     border: 1px solid #f3c8c8;
     border-radius: 8px;
     padding: 0.65rem 0.9rem;
@@ -315,5 +419,24 @@ button:active { transform: translateY(0); }
     text-transform: uppercase;
     letter-spacing: 0.02em;
 }
+.bookings-table tr:last-child td { border-bottom: none; }
+.bookings-table__action { text-align: right; white-space: nowrap; }
+.bookings-table__action form { margin: 0; }
 
-.logout-form { margin-bottom: 1.25rem; }
+.logout-form { margin: 0; }
+
+@media (max-width: 520px) {
+    .site-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.4rem;
+        padding: 0.85rem 1.25rem;
+    }
+    .site-header nav a { margin-left: 0; margin-right: 1.1rem; }
+    main { padding: 1.5rem 1rem 2.5rem; }
+    fieldset, .card { padding: 1.15rem; }
+    h1 { font-size: 1.35rem; }
+    .calendar-day { font-size: 0.78rem; }
+    .slot-grid { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
+    .page-intro--row { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+}
