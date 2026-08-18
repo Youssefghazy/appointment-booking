@@ -1,0 +1,94 @@
+:root {
+    color-scheme: light;
+    --fg: #1a1a1a;
+    --muted: #5b5b5b;
+    --border: #d8d8d8;
+    --accent: #2a5db0;
+    --error: #b0262a;
+    --success: #1f7a3a;
+    --bg: #fafafa;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.site-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: white;
+    border-bottom: 1px solid var(--border);
+}
+
+.site-title { font-weight: 700; text-decoration: none; color: var(--fg); }
+.site-header nav a { margin-left: 1rem; color: var(--accent); text-decoration: none; }
+.site-header nav a:hover { text-decoration: underline; }
+
+main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 1.5rem;
+}
+
+fieldset {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    padding: 1rem;
+}
+
+legend { font-weight: 600; padding: 0 0.4rem; }
+
+label {
+    display: block;
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+input[type="text"], input[type="email"], input[type="password"] {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.slot-list { display: flex; flex-direction: column; gap: 0.4rem; max-height: 320px; overflow-y: auto; }
+.slot-option { display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; color: var(--fg); }
+.slot-option input { width: auto; }
+
+button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+button:hover { opacity: 0.9; }
+
+.error { color: var(--error); font-weight: 600; }
+.success { color: var(--success); font-weight: 600; }
+
+.bookings-table { width: 100%; border-collapse: collapse; }
+.bookings-table th, .bookings-table td {
+    text-align: left;
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+}
+
+.logout-form { margin-bottom: 1rem; }

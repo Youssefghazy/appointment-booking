@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Cancel booking{% endblock %}
+{% block content %}
+{% if just_cancelled %}
+    <h1>Booking cancelled</h1>
+    <p class="success">Your booking has been cancelled and the slot is available again.</p>
+    <p><a href="/">&larr; Back to booking page</a></p>
+{% elif already_done %}
+    <h1>Link no longer valid</h1>
+    <p>This cancellation link has already been used or doesn't match a booking. No changes were made.</p>
+    <p><a href="/">&larr; Back to booking page</a></p>
+{% else %}
+    <h1>Cancel this booking?</h1>
+    <p>You're about to cancel your booking for <strong>{{ booking['slot_start'] | replace('T', ' at ') }}</strong>.</p>
+    <form method="post" action="/cancel/{{ booking['cancel_token'] }}">
+        <button type="submit">Yes, cancel my booking</button>
+    </form>
+    <p><a href="/">No, keep my booking</a></p>
+{% endif %}
+{% endblock %}

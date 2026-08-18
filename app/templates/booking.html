@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Book an appointment{% endblock %}
+{% block content %}
+<h1>Book an appointment</h1>
+<p>Pick an open time below. No account needed &mdash; just your name and phone number.</p>
+
+{% if error %}
+<p class="error">{{ error }}</p>
+{% endif %}
+
+{% if not slots %}
+<p>There are no open slots in the next few weeks. Please check back later.</p>
+{% else %}
+<form method="post" action="/book" class="booking-form">
+    <fieldset>
+        <legend>1. Choose a time</legend>
+        <div class="slot-list">
+            {% for slot in slots %}
+            <label class="slot-option">
+                <input type="radio" name="slot_start" value="{{ slot.strftime('%Y-%m-%dT%H:%M:%S') }}" required>
+                {{ slot.strftime('%a, %b %d %Y - %I:%M %p') }}
+            </label>
+            {% endfor %}
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>2. Your details</legend>
+        <label>
+            Name
+            <input type="text" name="customer_name" value="{{ form.customer_name or '' }}" required>
+        </label>
+        <label>
+            Phone
+            <input type="text" name="customer_phone" value="{{ form.customer_phone or '' }}" required>
+        </label>
+        <label>
+            Email (optional)
+            <input type="email" name="customer_email" value="{{ form.customer_email or '' }}">
+        </label>
+    </fieldset>
+
+    <button type="submit">Confirm booking</button>
+</form>
+{% endif %}
+{% endblock %}
