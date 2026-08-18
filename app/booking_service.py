@@ -6,14 +6,12 @@ separate from "how do we render a page", which makes both halves easier to
 read and test on their own.
 """
 
-import re
 import secrets
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from app import config
 
-PHONE_PATTERN = re.compile(r"^[0-9+\-()\s]{7,20}$")
 SLOT_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
 
@@ -88,6 +86,21 @@ def list_available_slots(conn: sqlite3.Connection, now: datetime | None = None) 
     return [slot for slot in all_slots if slot not in booked]
 
 
+def slots_by_date(conn: sqlite3.Connection, now: datetime | None = None) -> dict[date, list[datetime]]:
+    """Available slots grouped by calendar day -- the shape the day-picker
+    calendar and the "times for this day" list both need.
+    """
+    grouped: dict[date, list[datetime]] = {}
+    for slot in list_available_slots(conn, now):
+        grouped.setdefault(slot.date(), []).append(slot)
+    return grouped
+
+
+def is_business_day(day: date) -> bool:
+    """True if `day`'s weekday is one of the configured business days."""
+    return day.weekday() in config.BUSINESS_DAYS
+
+
 # ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
@@ -97,15 +110,6 @@ def _validate_name(name: str) -> str:
     cleaned = (name or "").strip()
     if not cleaned:
         raise InvalidBookingError("customer_name", "Please enter your name.")
-    return cleaned
-
-
-def _validate_phone(phone: str) -> str:
-    cleaned = (phone or "").strip()
-    if not cleaned or not PHONE_PATTERN.match(cleaned):
-        raise InvalidBookingError(
-            "customer_phone", "Please enter a valid phone number (at least 7 digits)."
-        )
     return cleaned
 
 
@@ -139,7 +143,6 @@ def create_booking(
     conn: sqlite3.Connection,
     slot_start_raw: str,
     customer_name: str,
-    customer_phone: str,
     customer_email: str | None = None,
     now: datetime | None = None,
 ) -> sqlite3.Row:
@@ -153,7 +156,6 @@ def create_booking(
 
     slot_start = _parse_slot(slot_start_raw)
     name = _validate_name(customer_name)
-    phone = _validate_phone(customer_phone)
     email = _validate_email(customer_email)
 
     if not is_valid_slot(slot_start, now):
@@ -171,11 +173,11 @@ def create_booking(
         conn.execute(
             """
             INSERT INTO bookings
-                (slot_start, customer_name, customer_phone, customer_email,
+                (slot_start, customer_name, customer_email,
                  status, cancel_token, created_at)
-            VALUES (?, ?, ?, ?, 'active', ?, ?)
+            VALUES (?, ?, ?, 'active', ?, ?)
             """,
-            (slot_start_str, name, phone, email, cancel_token, created_at),
+            (slot_start_str, name, email, cancel_token, created_at),
         )
     except sqlite3.IntegrityError as exc:
         conn.execute("ROLLBACK")

@@ -8,7 +8,7 @@ def _make_booking(client, slot=None):
     slot_str = slot.strftime("%Y-%m-%dT%H:%M:%S")
     resp = client.post(
         "/book",
-        data={"slot_start": slot_str, "customer_name": "Grace Hopper", "customer_phone": "555-0199"},
+        data={"slot_start": slot_str, "customer_name": "Grace Hopper"},
         follow_redirects=False,
     )
     assert resp.status_code == 303

@@ -32,9 +32,7 @@ def test_concurrent_service_calls_only_one_succeeds(temp_db):
         conn = db.get_connection()
         try:
             barrier.wait()  # line everyone up to maximize the actual race
-            booking_service.create_booking(
-                conn, slot_str, f"Customer {i}", "555-0100"
-            )
+            booking_service.create_booking(conn, slot_str, f"Customer {i}")
             successes.append(i)
         except booking_service.SlotAlreadyBookedError:
             conflicts.append(i)
@@ -76,7 +74,6 @@ def test_concurrent_http_requests_only_one_succeeds(client):
             data={
                 "slot_start": slot_str,
                 "customer_name": f"HTTP Customer {i}",
-                "customer_phone": "555-0100",
             },
             follow_redirects=False,
         )

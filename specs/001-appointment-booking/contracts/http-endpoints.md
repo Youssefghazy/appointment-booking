@@ -8,9 +8,10 @@ a booking.
 
 ## `GET /`
 
-Customer booking page. Renders the list of currently available slots
-(business hours minus active bookings, next 30 days, past slots excluded)
-as a simple form: pick a slot, enter name/phone/email, submit.
+Customer booking page. Renders a month calendar of days that have open
+slots (business hours minus active bookings, next 30 days, past slots
+excluded); picking a day (`?day=YYYY-MM-DD`) shows that day's open times
+as a simple form: pick a time, enter name/email, submit.
 
 - **Response**: 200, HTML.
 
@@ -19,7 +20,7 @@ as a simple form: pick a slot, enter name/phone/email, submit.
 Create a booking.
 
 - **Body (form-encoded)**: `slot_start` (required), `customer_name`
-  (required), `customer_phone` (required), `customer_email` (optional).
+  (required), `customer_email` (optional).
 - **Success**: 303 redirect to `GET /confirmation/{cancel_token}`.
 - **Validation failure** (FR-008): 422, re-renders the booking page with a
   specific error message and the customer's other input preserved.

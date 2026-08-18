@@ -8,8 +8,8 @@ implement → analyze.
 
 ## What it does
 
-- Customers can see which appointment slots are open and book one, giving
-  just their name and phone number — no account needed.
+- Customers pick a day from a calendar, then a time on that day, and book
+  it by giving just their name (email optional) — no account needed.
 - A slot can never be double-booked, **even if two people try to book it
   at the exact same moment.** This is enforced by the database itself (a
   partial unique index + transaction), not just by the page.

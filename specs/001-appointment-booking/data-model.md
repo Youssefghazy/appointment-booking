@@ -12,7 +12,6 @@ whichever slot start times already have an active `Booking`.
 | `id` | INTEGER | Primary key, autoincrement. |
 | `slot_start` | TEXT (ISO 8601 datetime, e.g. `2026-08-19T09:00:00`) | Required. Must fall within business hours and the booking window (validated in the service layer before insert). |
 | `customer_name` | TEXT | Required, non-empty after trimming whitespace. |
-| `customer_phone` | TEXT | Required. Validated as a plausible phone number (digits, spaces, `+`, `-`, min length) — not full E.164 validation, just enough to reject obvious junk (spec FR-008). |
 | `customer_email` | TEXT | Optional. If present, validated as a plausible email shape. |
 | `status` | TEXT | `'active'` or `'cancelled'`. Defaults to `'active'`. |
 | `cancel_token` | TEXT | Required, unique. A random URL-safe token (`secrets.token_urlsafe(24)`) generated at booking time; used in the cancellation link so it can't be guessed or enumerated (spec FR-005, Edge Cases). |
@@ -61,12 +60,17 @@ whichever slot start times already have an active `Booking`.
 1. `slot_start` must be one of the currently valid computed slots (within
    business hours, within the 30-day window, not in the past).
 2. `customer_name` must be non-empty after trimming.
-3. `customer_phone` must match a permissive pattern requiring at least 7
-   digits, allowing leading `+`, spaces, dashes, and parentheses.
-4. `customer_email`, if provided, must contain exactly one `@` with
+3. `customer_email`, if provided, must contain exactly one `@` with
    non-empty text on both sides.
-5. On insert, if the partial unique index rejects the write
+4. On insert, if the partial unique index rejects the write
    (`sqlite3.IntegrityError`), the service raises a domain-specific
    `SlotAlreadyBookedError`, which the route layer turns into a 409
    response with a clear message — this is the enforcement point for
    Constitution Principle II.
+
+> **Amendment (2026-08-18, post-submission):** `customer_phone` was removed
+> from the schema at the project owner's direction. Databases created by
+> the earlier schema are migrated by dropping and recreating the `bookings`
+> table the first time the app starts against them (see `app/db.py`,
+> `init_db()`) — acceptable for a small local app with no production data
+> to preserve.

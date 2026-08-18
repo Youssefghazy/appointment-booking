@@ -15,7 +15,6 @@
         <tr>
             <th>When</th>
             <th>Name</th>
-            <th>Phone</th>
             <th>Email</th>
             <th></th>
         </tr>
@@ -25,7 +24,6 @@
         <tr>
             <td>{{ booking['slot_start'] | replace('T', ' at ') }}</td>
             <td>{{ booking['customer_name'] }}</td>
-            <td>{{ booking['customer_phone'] }}</td>
             <td>{{ booking['customer_email'] or '—' }}</td>
             <td>
                 <form method="post" action="/owner/bookings/{{ booking['id'] }}/cancel">

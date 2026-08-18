@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS bookings (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     slot_start     TEXT NOT NULL,
     customer_name  TEXT NOT NULL,
-    customer_phone TEXT NOT NULL,
     customer_email TEXT,
     status         TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cancelled')),
     cancel_token   TEXT NOT NULL,
@@ -73,9 +72,21 @@ def init_db() -> None:
 
     Safe to call every time the app starts -- CREATE ... IF NOT EXISTS is
     a no-op once the schema is already there.
+
+    One-time migration note: an earlier version of this schema required a
+    `customer_phone` column. If a database created by that version is
+    found, its `bookings` table is dropped and recreated against the
+    current schema -- simplest possible migration for a small local app
+    with no production data to preserve. Any bookings in that old table
+    are discarded along with it.
     """
     conn = get_connection()
     try:
+        existing_columns = {
+            row["name"] for row in conn.execute("SELECT name FROM pragma_table_info('bookings')")
+        }
+        if existing_columns and "customer_phone" in existing_columns:
+            conn.execute("DROP TABLE IF EXISTS bookings")
         conn.executescript(SCHEMA)
     finally:
         conn.close()

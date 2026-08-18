@@ -22,13 +22,27 @@ clarification questions in `CLARIFICATIONS.md`.
 
 - Q: Your handwritten spec.md said the owner can "cancel a booking." Should the owner also be able to cancel a booking from their own view, not just view it? → A: Yes — the owner's view includes a cancel action per booking, and owner-initiated cancellation frees the slot immediately, same as customer self-cancellation.
 
+### Amendment 2026-08-18 (post-submission, user-directed)
+
+- Change: The phone number field is removed from the booking form entirely.
+  Customers now provide only their name (required) and, optionally, an
+  email address. There is no longer any required contact field beyond
+  name. Requested directly by the project owner to reduce friction in the
+  booking form; the tradeoff (the business has no way to reach a customer
+  who doesn't supply an email) was flagged and accepted as a deliberate
+  choice.
+- Change: The booking page now uses a two-step flow — a month calendar to
+  pick a day, then a list of that day's open times — instead of a single
+  scrolling list of all days at once. Same underlying slots and business
+  rules; this only changes how they're presented.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Book an available appointment (Priority: P1)
 
 A customer visits the booking page, sees which slots are still open over the
-next several weeks, picks one that works for them, enters their name and
-phone number, and confirms. They immediately see a confirmation and a link
+next several weeks, picks a day, then a time, enters their name (email
+optional), and confirms. They immediately see a confirmation and a link
 they can use later to cancel.
 
 **Why this priority**: This is the entire reason the system exists. Without
@@ -42,16 +56,16 @@ as available to a second visitor.
 **Acceptance Scenarios**:
 
 1. **Given** the booking page with several open slots, **When** a customer
-   selects an open slot and submits a valid name and phone number, **Then**
-   the booking is created, a confirmation with a cancellation link is shown,
-   and that slot no longer appears as available.
+   selects an open slot and submits a valid name, **Then** the booking is
+   created, a confirmation with a cancellation link is shown, and that slot
+   no longer appears as available.
 2. **Given** two customers viewing the same open slot at the same time,
    **When** both submit a booking for that slot within moments of each
    other, **Then** exactly one booking succeeds and the other customer sees
    a clear "this slot was just taken" message with no booking created for
    them.
 3. **Given** the booking page, **When** a customer submits the booking form
-   with an empty name or an unrecognizable phone number, **Then** the
+   with an empty name or an unrecognizable email address, **Then** the
    booking is rejected with a clear, specific validation message and no
    booking is created.
 
@@ -138,7 +152,7 @@ afterward.
   hours (Monday-Friday, 9 AM-5 PM) and the active booking window that are
   not currently booked.
 - **FR-002**: System MUST allow a customer to book any currently-available
-  slot by providing their name and phone number, with no account or login
+  slot by providing their name (email optional), with no account or login
   of any kind.
 - **FR-003**: System MUST guarantee that a slot is never held by more than
   one active booking at a time, including when booking requests for the
@@ -156,8 +170,8 @@ afterward.
   past, outside business hours, or already booked, with a clear error
   message identifying the reason.
 - **FR-008**: System MUST validate customer-submitted booking details
-  (name required; phone required in a recognizable format) and reject
-  invalid submissions with an understandable, field-specific error.
+  (name required; email, if provided, must be a recognizable shape) and
+  reject invalid submissions with an understandable, field-specific error.
 - **FR-009**: System MUST NOT require or offer customer accounts, login, or
   passwords anywhere in the booking flow.
 - **FR-010**: System MUST NOT reveal any booking or customer data to anyone
@@ -172,9 +186,9 @@ afterward.
   within business hours. At any moment it is either open or held by exactly
   one active booking.
 - **Booking**: A customer's reservation of one slot. Holds the customer's
-  name, phone number (email optional), the reserved slot's time, when the
-  booking was made, its status (active or cancelled), and a unique,
-  unguessable cancellation token.
+  name (email optional), the reserved slot's time, when the booking was
+  made, its status (active or cancelled), and a unique, unguessable
+  cancellation token.
 
 ## Success Criteria *(mandatory)*
 

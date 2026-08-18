@@ -21,7 +21,6 @@ def test_successful_booking_returns_confirmation(client):
         data={
             "slot_start": slot_str,
             "customer_name": "Ada Lovelace",
-            "customer_phone": "555-0100",
             "customer_email": "ada@example.com",
         },
         follow_redirects=False,
@@ -47,17 +46,10 @@ def test_invalid_input_rejected(client):
     # Empty name
     resp = client.post(
         "/book",
-        data={"slot_start": slot_str, "customer_name": "", "customer_phone": "555-0100"},
+        data={"slot_start": slot_str, "customer_name": ""},
     )
     assert resp.status_code == 422
     assert "name" in resp.text.lower()
-
-    # Malformed phone (too short / not digits)
-    resp = client.post(
-        "/book",
-        data={"slot_start": slot_str, "customer_name": "Ada", "customer_phone": "abc"},
-    )
-    assert resp.status_code == 422
 
     # Malformed email
     resp = client.post(
@@ -65,7 +57,6 @@ def test_invalid_input_rejected(client):
         data={
             "slot_start": slot_str,
             "customer_name": "Ada",
-            "customer_phone": "555-0100",
             "customer_email": "not-an-email",
         },
     )
@@ -83,7 +74,6 @@ def test_booking_rejected_outside_business_hours_or_past(client):
         data={
             "slot_start": outside_hours.strftime("%Y-%m-%dT%H:%M:%S"),
             "customer_name": "Ada",
-            "customer_phone": "555-0100",
         },
     )
     assert resp.status_code == 422
@@ -94,7 +84,6 @@ def test_booking_rejected_outside_business_hours_or_past(client):
         data={
             "slot_start": past_slot.strftime("%Y-%m-%dT%H:%M:%S"),
             "customer_name": "Ada",
-            "customer_phone": "555-0100",
         },
     )
     assert resp.status_code == 422

@@ -33,7 +33,7 @@ body {
 .site-header nav a:hover { text-decoration: underline; }
 
 main {
-    max-width: 640px;
+    max-width: 720px;
     margin: 0 auto;
     padding: 1.5rem;
 }
@@ -64,9 +64,121 @@ input[type="text"], input[type="email"], input[type="password"] {
     font-size: 1rem;
 }
 
-.slot-list { display: flex; flex-direction: column; gap: 0.4rem; max-height: 320px; overflow-y: auto; }
-.slot-option { display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; color: var(--fg); }
-.slot-option input { width: auto; }
+/* A stack of real month calendars -- one per month that has any open
+   day -- so picking a day feels like picking a day, not scrolling a
+   list. Each day is a plain link (?day=YYYY-MM-DD); no JS needed. */
+.calendar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.calendar-month-label {
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--fg);
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.35rem;
+}
+
+.calendar-weekday {
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted);
+    padding-bottom: 0.15rem;
+}
+
+.calendar-day {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--border);
+    text-decoration: none;
+}
+
+.calendar-day.is-outside-month {
+    color: transparent;
+}
+
+.calendar-day.has-slots {
+    color: var(--fg);
+    background: white;
+    border: 1px solid var(--border);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.calendar-day.has-slots:hover {
+    border-color: var(--accent);
+}
+
+.calendar-day.has-slots.is-selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.slot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    gap: 0.5rem;
+}
+
+/* Each time slot is a native radio button, visually hidden, wrapped in a
+   label styled as a button -- so it stays a normal, accessible HTML form
+   control (works with keyboard/screen readers) while looking like a
+   calendar time-picker. */
+.slot-option {
+    display: block;
+    margin: 0;
+    font-size: 0;
+}
+
+.slot-option input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slot-option span {
+    display: block;
+    text-align: center;
+    padding: 0.5rem 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--fg);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+}
+
+.slot-option span:hover {
+    border-color: var(--accent);
+}
+
+.slot-option:has(input:checked) span {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    font-weight: 600;
+}
+
+.slot-option input:focus-visible + span {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
 
 button {
     background: var(--accent);

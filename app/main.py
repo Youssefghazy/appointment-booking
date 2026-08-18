@@ -6,7 +6,9 @@ redirect). No SQL and no business rules live in this file on purpose --
 see booking_service.py for that.
 """
 
+import calendar as calendar_module
 from contextlib import asynccontextmanager
+from datetime import date, datetime
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -32,23 +34,96 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 
+def _build_calendar_months(available_dates: list[date], selected_date: date | None) -> list[dict]:
+    """Builds one month-grid per calendar month that has at least one
+    bookable day, so the booking page can show a real "pick a day" month
+    calendar instead of a flat list. This is a display concern only -- it
+    doesn't change what a slot *is*, so it lives here in the web layer
+    rather than in booking_service.py.
+    """
+    if not available_dates:
+        return []
+
+    dates_by_month: dict[tuple[int, int], set[date]] = {}
+    for d in available_dates:
+        dates_by_month.setdefault((d.year, d.month), set()).add(d)
+
+    cal = calendar_module.Calendar(firstweekday=0)  # weeks start on Monday
+    months = []
+    for year, month in sorted(dates_by_month):
+        available_in_month = dates_by_month[(year, month)]
+        weeks = []
+        for week in cal.monthdatescalendar(year, month):
+            weeks.append(
+                [
+                    {
+                        "iso": d.isoformat(),
+                        "day_number": d.day,
+                        "in_month": d.month == month,
+                        "has_slots": d in available_in_month,
+                        "is_selected": d == selected_date,
+                    }
+                    for d in week
+                ]
+            )
+        months.append({"label": date(year, month, 1).strftime("%B %Y"), "weeks": weeks})
+    return months
+
+
+def _render_booking_page(
+    request: Request,
+    *,
+    day: str | None,
+    error: str | None,
+    form: dict,
+    status_code: int = 200,
+):
+    """Shared rendering for the booking page: figures out which day is
+    selected (from the `day` query param, falling back to the first day
+    with any open slots), builds the calendar, and renders it.
+    """
+    conn = db.get_connection()
+    try:
+        grouped = booking_service.slots_by_date(conn)
+    finally:
+        conn.close()
+
+    available_dates = sorted(grouped.keys())
+
+    selected_date = None
+    if day:
+        try:
+            candidate = datetime.strptime(day, "%Y-%m-%d").date()
+        except ValueError:
+            candidate = None
+        if candidate in grouped:
+            selected_date = candidate
+    if selected_date is None and available_dates:
+        selected_date = available_dates[0]
+
+    return templates.TemplateResponse(
+        request,
+        "booking.html",
+        {
+            "calendar_months": _build_calendar_months(available_dates, selected_date),
+            "selected_date": selected_date,
+            "selected_slots": grouped.get(selected_date, []) if selected_date else [],
+            "has_any_slots": bool(available_dates),
+            "error": error,
+            "form": form,
+        },
+        status_code=status_code,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Customer: browse + book (User Story 1)
 # ---------------------------------------------------------------------------
 
 
 @app.get("/", response_class=HTMLResponse)
-def booking_page(request: Request, error: str | None = None):
-    conn = db.get_connection()
-    try:
-        slots = booking_service.list_available_slots(conn)
-    finally:
-        conn.close()
-    return templates.TemplateResponse(
-        request,
-        "booking.html",
-        {"slots": slots, "error": error, "form": {}},
-    )
+def booking_page(request: Request, error: str | None = None, day: str | None = None):
+    return _render_booking_page(request, day=day, error=error, form={})
 
 
 @app.post("/book")
@@ -56,45 +131,32 @@ def book_slot(
     request: Request,
     slot_start: str = Form(...),
     customer_name: str = Form(...),
-    customer_phone: str = Form(...),
     customer_email: str = Form(""),
 ):
+    # If we need to redisplay the form, keep the customer on the day they
+    # were looking at rather than bouncing them back to the first day.
+    submitted_day = slot_start[:10] if slot_start else None
+
     conn = db.get_connection()
     try:
         try:
             booking = booking_service.create_booking(
-                conn, slot_start, customer_name, customer_phone, customer_email or None
+                conn, slot_start, customer_name, customer_email or None
             )
         except booking_service.InvalidBookingError as exc:
-            slots = booking_service.list_available_slots(conn)
-            return templates.TemplateResponse(
+            return _render_booking_page(
                 request,
-                "booking.html",
-                {
-                    "slots": slots,
-                    "error": exc.message,
-                    "form": {
-                        "customer_name": customer_name,
-                        "customer_phone": customer_phone,
-                        "customer_email": customer_email,
-                    },
-                },
+                day=submitted_day,
+                error=exc.message,
+                form={"customer_name": customer_name, "customer_email": customer_email},
                 status_code=422,
             )
         except booking_service.SlotAlreadyBookedError as exc:
-            slots = booking_service.list_available_slots(conn)
-            return templates.TemplateResponse(
+            return _render_booking_page(
                 request,
-                "booking.html",
-                {
-                    "slots": slots,
-                    "error": str(exc),
-                    "form": {
-                        "customer_name": customer_name,
-                        "customer_phone": customer_phone,
-                        "customer_email": customer_email,
-                    },
-                },
+                day=submitted_day,
+                error=str(exc),
+                form={"customer_name": customer_name, "customer_email": customer_email},
                 status_code=409,
             )
     finally:
