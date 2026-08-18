@@ -71,7 +71,19 @@ input[type="text"], input[type="email"], input[type="password"] {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Introduces the time grid right below the calendar, inside the same
+   "1. Book a time" section -- picking a day and picking a time read as
+   one continuous step instead of two separate ones. */
+.selected-day-label {
+    margin: 0 0 0.6rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--fg);
 }
 
 .calendar-month-label {

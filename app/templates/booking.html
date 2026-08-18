@@ -2,7 +2,7 @@
 {% block title %}Book an appointment{% endblock %}
 {% block content %}
 <h1>Book an appointment</h1>
-<p>Pick a day, then a time. No account needed &mdash; just your name.</p>
+<p>Pick a day and time below, then enter your details. No account needed &mdash; just your name.</p>
 
 {% if error %}
 <p class="error">{{ error }}</p>
@@ -11,40 +11,38 @@
 {% if not has_any_slots %}
 <p>There are no open slots in the next few weeks. Please check back later.</p>
 {% else %}
-<fieldset>
-    <legend>1. Choose a day</legend>
-    <div class="calendar-list">
-        {% for month in calendar_months %}
-        <div class="calendar-month">
-            <h3 class="calendar-month-label">{{ month.label }}</h3>
-            <div class="calendar-grid">
-                <span class="calendar-weekday">Mon</span>
-                <span class="calendar-weekday">Tue</span>
-                <span class="calendar-weekday">Wed</span>
-                <span class="calendar-weekday">Thu</span>
-                <span class="calendar-weekday">Fri</span>
-                <span class="calendar-weekday">Sat</span>
-                <span class="calendar-weekday">Sun</span>
-                {% for week in month.weeks %}
-                {% for day in week %}
-                {% if day.has_slots %}
-                <a href="/?day={{ day.iso }}"
-                   class="calendar-day has-slots{{ ' is-selected' if day.is_selected else '' }}">{{ day.day_number }}</a>
-                {% else %}
-                <span class="calendar-day{{ '' if day.in_month else ' is-outside-month' }}">{{ day.day_number }}</span>
-                {% endif %}
-                {% endfor %}
-                {% endfor %}
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</fieldset>
-
-{% if selected_date %}
 <form method="post" action="/book" class="booking-form">
     <fieldset>
-        <legend>2. Choose a time &mdash; {{ selected_date.strftime('%A, %B %d') }}</legend>
+        <legend>1. Book a time</legend>
+        <div class="calendar-list">
+            {% for month in calendar_months %}
+            <div class="calendar-month">
+                <h3 class="calendar-month-label">{{ month.label }}</h3>
+                <div class="calendar-grid">
+                    <span class="calendar-weekday">Mon</span>
+                    <span class="calendar-weekday">Tue</span>
+                    <span class="calendar-weekday">Wed</span>
+                    <span class="calendar-weekday">Thu</span>
+                    <span class="calendar-weekday">Fri</span>
+                    <span class="calendar-weekday">Sat</span>
+                    <span class="calendar-weekday">Sun</span>
+                    {% for week in month.weeks %}
+                    {% for day in week %}
+                    {% if day.has_slots %}
+                    <a href="/?day={{ day.iso }}"
+                       class="calendar-day has-slots{{ ' is-selected' if day.is_selected else '' }}">{{ day.day_number }}</a>
+                    {% else %}
+                    <span class="calendar-day{{ '' if day.in_month else ' is-outside-month' }}">{{ day.day_number }}</span>
+                    {% endif %}
+                    {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if selected_date %}
+        <p class="selected-day-label">Times for {{ selected_date.strftime('%A, %B %d') }}</p>
         {% if not selected_slots %}
         <p>No open times left on this day. Pick another day above.</p>
         {% else %}
@@ -57,11 +55,12 @@
             {% endfor %}
         </div>
         {% endif %}
+        {% endif %}
     </fieldset>
 
-    {% if selected_slots %}
+    {% if selected_date and selected_slots %}
     <fieldset>
-        <legend>3. Your details</legend>
+        <legend>2. Your details</legend>
         <label>
             Name
             <input type="text" name="customer_name" value="{{ form.customer_name or '' }}" required>
@@ -75,6 +74,5 @@
     <button type="submit">Confirm booking</button>
     {% endif %}
 </form>
-{% endif %}
 {% endif %}
 {% endblock %}
