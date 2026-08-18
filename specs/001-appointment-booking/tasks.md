@@ -8,6 +8,13 @@ for the no-double-booking guarantee.
 **Organization**: Tasks are grouped by user story (from spec.md) so each
 story is independently completable and testable.
 
+> Revised after `/speckit-analyze` (see `analysis-report.md`): finding F1
+> (CRITICAL) moved the shared `cancel_booking()` implementation from the
+> User Story 3 phase into the User Story 2 phase, since both stories need
+> it and US2 has the earlier priority. Finding F2 added an explicit test
+> for FR-007 (rejecting out-of-hours/past bookings). Finding F4 broadened
+> the invalid-input test to also cover a malformed email.
+
 ## Phase 1: Setup (project initialization)
 
 - [ ] T001 Create project directories per plan.md: `app/`, `app/templates/`, `app/static/`, `tests/`, `data/` (with `app/__init__.py`)
@@ -37,18 +44,19 @@ story is independently completable and testable.
 
 - [ ] T010 [P] [US1] Write `tests/test_booking_flow.py::test_home_page_lists_available_slots` — `GET /` returns 200 and includes the expected upcoming slots
 - [ ] T011 [P] [US1] Write `tests/test_booking_flow.py::test_successful_booking_returns_confirmation` — valid `POST /book` redirects to a confirmation page showing the booked time and a cancel link, and the slot no longer appears on `GET /`
-- [ ] T012 [P] [US1] Write `tests/test_booking_flow.py::test_invalid_input_rejected` — empty name / malformed phone via `POST /book` returns a validation error and creates no booking (FR-008)
-- [ ] T013 [P] [US1] Write `tests/test_double_booking.py::test_concurrent_service_calls_only_one_succeeds` — spawn real OS threads calling `booking_service.create_booking()` directly for the same `slot_start` against a shared on-disk SQLite file; assert exactly one succeeds and the rest raise `SlotAlreadyBookedError`
-- [ ] T014 [P] [US1] Write `tests/test_double_booking.py::test_concurrent_http_requests_only_one_succeeds` — spawn threads issuing `POST /book` for the same slot through `TestClient`; assert exactly one 303 and the rest 409
+- [ ] T012 [P] [US1] Write `tests/test_booking_flow.py::test_invalid_input_rejected` — empty name, malformed phone, AND malformed email (e.g. no `@`) via `POST /book` each return a validation error and create no booking (FR-008)
+- [ ] T013 [P] [US1] Write `tests/test_booking_flow.py::test_booking_rejected_outside_business_hours_or_past` — `POST /book` for a slot outside business hours and for a slot in the past are both rejected with a clear error and create no booking (FR-007)
+- [ ] T014 [P] [US1] Write `tests/test_double_booking.py::test_concurrent_service_calls_only_one_succeeds` — spawn real OS threads calling `booking_service.create_booking()` directly for the same `slot_start` against a shared on-disk SQLite file; assert exactly one succeeds and the rest raise `SlotAlreadyBookedError`
+- [ ] T015 [P] [US1] Write `tests/test_double_booking.py::test_concurrent_http_requests_only_one_succeeds` — spawn threads issuing `POST /book` for the same slot through `TestClient`; assert exactly one 303 and the rest 409
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Implement `booking_service.create_booking(conn, slot_start, name, phone, email)` in `app/booking_service.py`: validate inputs (data-model.md rules), run the insert inside a `BEGIN IMMEDIATE` transaction, generate `cancel_token` via `secrets.token_urlsafe`, catch `sqlite3.IntegrityError` and raise `SlotAlreadyBookedError`
-- [ ] T016 [US1] Implement `GET /` route in `app/main.py`, rendering `booking.html` with the result of `list_available_slots`
-- [ ] T017 [US1] Implement `POST /book` route in `app/main.py`: parse form fields, call `create_booking`, redirect (303) to `/confirmation/{cancel_token}` on success, re-render `booking.html` with a specific error on validation failure (422) or `SlotAlreadyBookedError` (409)
-- [ ] T018 [P] [US1] Create `app/templates/booking.html`: slot list + booking form, error message placeholder
-- [ ] T019 [P] [US1] Create `app/templates/confirmation.html`: booked time + cancellation link
-- [ ] T020 [US1] Implement `GET /confirmation/{cancel_token}` route: look up the booking by token, render `confirmation.html`, or a 404 page if not found
+- [ ] T016 [US1] Implement `booking_service.create_booking(conn, slot_start, name, phone, email)` in `app/booking_service.py`: validate inputs including business-hours/past-slot checks (data-model.md rules), run the insert inside a `BEGIN IMMEDIATE` transaction, generate `cancel_token` via `secrets.token_urlsafe`, catch `sqlite3.IntegrityError` and raise `SlotAlreadyBookedError`
+- [ ] T017 [US1] Implement `GET /` route in `app/main.py`, rendering `booking.html` with the result of `list_available_slots`
+- [ ] T018 [US1] Implement `POST /book` route in `app/main.py`: parse form fields, call `create_booking`, redirect (303) to `/confirmation/{cancel_token}` on success, re-render `booking.html` with a specific error on validation failure (422) or `SlotAlreadyBookedError` (409)
+- [ ] T019 [P] [US1] Create `app/templates/booking.html`: slot list + booking form, error message placeholder
+- [ ] T020 [P] [US1] Create `app/templates/confirmation.html`: booked time + cancellation link
+- [ ] T021 [US1] Implement `GET /confirmation/{cancel_token}` route: look up the booking by token, render `confirmation.html`, or a 404 page if not found
 
 **Checkpoint**: `pytest tests/test_booking_flow.py tests/test_double_booking.py` passes. This alone is a demoable MVP.
 
@@ -58,21 +66,24 @@ story is independently completable and testable.
 
 **Independent Test**: With bookings created from Phase 3, visit `/owner`, confirm wrong passcode is refused and no data leaks, confirm right passcode shows the bookings, and confirm cancelling one frees its slot.
 
+**Note**: This phase implements the shared `cancel_booking()` service function (T025), since it is needed by both this story and User Story 3. It is placed here because User Story 2 (P2) has the earlier priority.
+
 ### Tests for User Story 2
 
-- [ ] T021 [P] [US2] Write `tests/test_owner_view.py::test_owner_bookings_requires_session` — `GET /owner/bookings` without a session redirects to `/owner`
-- [ ] T022 [P] [US2] Write `tests/test_owner_view.py::test_passcode_gate` — wrong passcode via `POST /owner` returns 401 with no booking data present in the response; correct passcode grants access and lists existing bookings (FR-006, FR-010)
-- [ ] T023 [P] [US2] Write `tests/test_cancellation.py::test_owner_can_cancel_booking` — after authenticating, `POST /owner/bookings/{id}/cancel` frees the slot immediately, verified via `GET /` (FR-011)
+- [ ] T022 [P] [US2] Write `tests/test_owner_view.py::test_owner_bookings_requires_session` — `GET /owner/bookings` without a session redirects to `/owner`
+- [ ] T023 [P] [US2] Write `tests/test_owner_view.py::test_passcode_gate` — wrong passcode via `POST /owner` returns 401 with no booking data present in the response; correct passcode grants access and lists existing bookings (FR-006, FR-010)
+- [ ] T024 [P] [US2] Write `tests/test_cancellation.py::test_owner_can_cancel_booking` — after authenticating, `POST /owner/bookings/{id}/cancel` frees the slot immediately, verified via `GET /` (FR-011)
 
 ### Implementation for User Story 2
 
-- [ ] T024 [US2] Implement owner session helper in `app/main.py` (`require_owner` dependency checking the session cookie set after passcode verification)
-- [ ] T025 [US2] Implement `GET /owner` and `POST /owner` routes: render passcode form; on correct passcode (compared against `config.OWNER_PASSCODE`) set the session flag and redirect to `/owner/bookings`
-- [ ] T026 [US2] Implement `GET /owner/bookings` route (behind `require_owner`): list all active bookings with a cancel action per row
-- [ ] T027 [US2] Implement `POST /owner/bookings/{booking_id}/cancel` route (behind `require_owner`): call `booking_service.cancel_booking(booking_id=..., by="owner")`, redirect back to the list
-- [ ] T028 [P] [US2] Create `app/templates/owner_login.html`
-- [ ] T029 [P] [US2] Create `app/templates/owner_bookings.html`
-- [ ] T030 [US2] Implement `POST /owner/logout` route clearing the session
+- [ ] T025 [US2] Implement the shared `booking_service.cancel_booking(conn, *, booking_id=None, cancel_token=None, by)` in `app/booking_service.py`: sets `status='cancelled'`, `cancelled_at`, `cancelled_by` (`"owner"` or `"customer"`); looks the booking up by whichever of `booking_id`/`cancel_token` is provided; no-ops safely (returns a "not found/already cancelled" result rather than raising) if the booking doesn't exist or is already cancelled
+- [ ] T026 [US2] Implement owner session helper in `app/main.py` (`require_owner` dependency checking the session cookie set after passcode verification)
+- [ ] T027 [US2] Implement `GET /owner` and `POST /owner` routes: render passcode form; on correct passcode (compared against `config.OWNER_PASSCODE`) set the session flag and redirect to `/owner/bookings`
+- [ ] T028 [US2] Implement `GET /owner/bookings` route (behind `require_owner`): list all active bookings with a cancel action per row
+- [ ] T029 [US2] Implement `POST /owner/bookings/{booking_id}/cancel` route (behind `require_owner`): calls `cancel_booking(booking_id=..., by="owner")` from T025, redirects back to the list
+- [ ] T030 [P] [US2] Create `app/templates/owner_login.html`
+- [ ] T031 [P] [US2] Create `app/templates/owner_bookings.html`
+- [ ] T032 [US2] Implement `POST /owner/logout` route clearing the session
 
 **Checkpoint**: `pytest tests/test_owner_view.py tests/test_cancellation.py -k owner` passes.
 
@@ -82,43 +93,46 @@ story is independently completable and testable.
 
 **Independent Test**: Book a slot, follow its cancellation link, confirm cancellation, verify the slot is available again and the same link can't cancel twice.
 
+**Note**: Reuses the shared `cancel_booking()` function implemented in Phase 4 (T025) — this phase only adds the customer-facing routes and template.
+
 ### Tests for User Story 3
 
-- [ ] T031 [P] [US3] Write `tests/test_cancellation.py::test_customer_can_cancel_via_link` — `POST /cancel/{token}` on an active booking frees the slot immediately (FR-005), verified via `GET /`
-- [ ] T032 [P] [US3] Write `tests/test_cancellation.py::test_reusing_cancel_link_is_safe` — a second `POST /cancel/{token}` for an already-cancelled (or unknown) token makes no state change and shows a "no longer valid" result rather than erroring or double-cancelling
+- [ ] T033 [P] [US3] Write `tests/test_cancellation.py::test_customer_can_cancel_via_link` — `POST /cancel/{token}` on an active booking frees the slot immediately (FR-005), verified via `GET /`
+- [ ] T034 [P] [US3] Write `tests/test_cancellation.py::test_reusing_cancel_link_is_safe` — a second `POST /cancel/{token}` for an already-cancelled (or unknown) token makes no state change and shows a "no longer valid" result rather than erroring or double-cancelling
 
 ### Implementation for User Story 3
 
-- [ ] T033 [US3] Implement `booking_service.cancel_booking(conn, cancel_token=..., by="customer")` in `app/booking_service.py`: sets `status='cancelled'`, `cancelled_at`, `cancelled_by`; no-ops safely if already cancelled or token unknown
-- [ ] T034 [US3] Implement `GET /cancel/{cancel_token}` route: side-effect-free confirmation prompt page
-- [ ] T035 [US3] Implement `POST /cancel/{cancel_token}` route: performs the cancellation, renders the result
-- [ ] T036 [P] [US3] Create `app/templates/cancel.html`
+- [ ] T035 [US3] Implement `GET /cancel/{cancel_token}` route: side-effect-free confirmation prompt page
+- [ ] T036 [US3] Implement `POST /cancel/{cancel_token}` route: calls `cancel_booking(cancel_token=..., by="customer")` from T025, renders the result
+- [ ] T037 [P] [US3] Create `app/templates/cancel.html`
 
 **Checkpoint**: `pytest tests/test_cancellation.py` passes in full.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T037 [P] Add minimal `app/static/style.css` for readability (no framework)
-- [ ] T038 [P] Run `pytest` for the full suite and fix any failures found
-- [ ] T039 Manually walk through every scenario in `quickstart.md` against the running app and confirm each one matches
-- [ ] T040 Write the top-level `README.md` (setup, run, test instructions) per the assignment requirements
+- [ ] T038 [P] Add minimal `app/static/style.css` for readability (no framework)
+- [ ] T039 [P] Run `pytest` for the full suite and fix any failures found
+- [ ] T040 Manually walk through every scenario in `quickstart.md` against the running app and confirm each one matches
+- [ ] T041 Write the top-level `README.md` (setup, run, test instructions) per the assignment requirements
 
 ## Dependencies & Execution Order
 
 - **Phase 1 (Setup)** → **Phase 2 (Foundational)**: strictly sequential; Phase 2 blocks every user story.
 - **Phase 3 (US1)** depends only on Phase 2. It is the MVP and should be completed and verified first.
-- **Phase 4 (US2)** depends on Phase 2 and on bookings existing to view — practically sequenced after Phase 3, though its own routes don't call US1 code directly.
-- **Phase 5 (US3)** depends on Phase 2 and the `cancel_token` produced by US1's `create_booking` (Phase 3) — sequenced after Phase 3.
+- **Phase 4 (US2)** depends on Phase 2 and Phase 3 (needs real bookings to view/cancel, and implements the shared `cancel_booking()` used by Phase 5).
+- **Phase 5 (US3)** depends on Phase 4 (reuses `cancel_booking()` from T025 — do not implement it again).
 - **Phase 6 (Polish)** runs after all three user stories are implemented and tested.
 
-Recommended order: Phase 1 → Phase 2 → Phase 3 (US1) → Phase 5 (US3, shares `booking_service` cancel logic conceptually with US2) → Phase 4 (US2) → Phase 6. (US2 and US3 could be swapped since they're independent of each other; both only need Phase 2 + US1's booking creation to exist.)
+Execution order is strictly Phase 1 → 2 → 3 → 4 → 5 → 6; unlike an earlier
+draft of this file, Phases 4 and 5 are **not** interchangeable, because
+Phase 5 depends on the shared cancellation logic Phase 4 implements.
 
 ## Parallel Execution Examples
 
-Within Phase 3, T010-T014 (all test-writing tasks) can be done in parallel — they touch only test files. T018 and T019 (templates) can be done in parallel with each other and with T015 (service logic), since they're different files, but T016/T017 (routes) depend on T015 existing.
+Within Phase 3, T010-T015 (all test-writing tasks) can be done in parallel — they touch only test files. T019 and T020 (templates) can be done in parallel with each other and with T016 (service logic), since they're different files, but T017/T018 (routes) depend on T016 existing.
 
-Within Phase 4, T021-T023 (tests) can run in parallel; T028/T029 (templates) can run in parallel with T024 (session helper).
+Within Phase 4, T022-T024 (tests) can run in parallel; T030/T031 (templates) can run in parallel with T025/T026 (service + session helper).
 
 ## Implementation Strategy
 
-**MVP first**: Complete Phase 1 → Phase 2 → Phase 3 (User Story 1) and stop there to get a working, demoable, double-booking-safe booking flow. Phases 4 and 5 add the owner view and self-service cancellation on top, each independently testable and shippable.
+**MVP first**: Complete Phase 1 → Phase 2 → Phase 3 (User Story 1) and stop there to get a working, demoable, double-booking-safe booking flow. Phases 4 and 5 add the owner view/cancel and self-service cancellation on top, each independently testable and shippable, in that order.
