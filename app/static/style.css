@@ -91,10 +91,9 @@ h1 {
     font-size: 0.98rem;
 }
 
-/* A plain content card -- used for anything that isn't already a
-   <fieldset> (confirmation, cancellation, owner login, owner
-   dashboard) so every page in the app shares the same visual language
-   instead of the booking page being the only "designed" one. */
+/* A plain content card -- the one shared visual container every page in
+   the app uses (booking, confirmation, cancellation, owner login, owner
+   dashboard), so nothing feels bolted-on or inconsistent with the rest. */
 .card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -140,24 +139,6 @@ h1 {
 
 .empty-state { color: var(--muted); text-align: center; padding: 0.5rem 0; margin: 0; }
 
-fieldset {
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    margin: 0 0 1.25rem;
-    padding: 1.5rem;
-    background: var(--surface);
-    box-shadow: var(--shadow-sm);
-}
-
-legend {
-    font-weight: 700;
-    font-size: 0.8rem;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: var(--accent);
-    padding: 0 0.5rem;
-}
-
 label {
     display: block;
     margin-bottom: 1rem;
@@ -186,121 +167,123 @@ input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focu
     box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-/* A stack of real month calendars -- one per month that has any open
-   day -- so picking a day feels like picking a day, not scrolling a
-   list. Each day is a plain link (?day=YYYY-MM-DD); no JS needed. Only
-   the weekdays that are ever business days get a column (Sat/Sun are
-   dropped entirely for the default Mon-Fri schedule, instead of
-   rendering as permanently-empty columns), and past weeks with nothing
-   bookable are trimmed server-side, so there's no clutter to scroll
-   past either direction. */
-.calendar-list {
+/* The booking page is a single card whose content is one of three
+   stages (day / time / details) -- never more than one visible at
+   once, so this small 1-2-step indicator above the card is the only
+   thing showing the customer where they are and what's left. Purely
+   informational (aria-hidden): the actual state lives in the page
+   content and the URL, not in this widget. */
+.progress-steps {
     display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    margin-bottom: 0.25rem;
+    gap: 1.25rem;
+    margin-bottom: 1rem;
 }
 
-.calendar-month-label {
-    margin: 0 0 0.75rem;
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--fg);
-}
-
-.calendar-grid {
-    display: grid;
-    gap: 0.4rem;
-}
-
-.calendar-weekday {
-    text-align: center;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    color: var(--muted);
-    padding-bottom: 0.3rem;
-}
-
-.calendar-day {
+.progress-step {
     display: flex;
     align-items: center;
-    justify-content: center;
-    aspect-ratio: 1;
-    border-radius: 8px;
+    gap: 0.45rem;
     font-size: 0.85rem;
-    color: #c4c4c4;
-    text-decoration: none;
-    border: 1px solid transparent;
-}
-
-.calendar-day.is-outside-month {
-    color: transparent;
-}
-
-.calendar-day.has-slots {
-    color: var(--fg);
-    background: var(--surface);
-    border: 1px solid var(--border);
     font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    color: var(--muted);
 }
 
-.calendar-day.has-slots:hover {
+.progress-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: var(--border);
+    color: var(--muted);
+    font-size: 0.78rem;
+    flex-shrink: 0;
+}
+
+.progress-step.is-active { color: var(--accent-dark); }
+.progress-step.is-active .progress-step-num { background: var(--accent); color: white; }
+.progress-step.is-done { color: var(--success); }
+.progress-step.is-done .progress-step-num { background: var(--success-soft); color: var(--success); }
+
+.card-heading {
+    margin: 0 0 1.1rem;
+    font-size: 1.05rem;
+}
+
+/* One compact card per bookable day (weekday + month + day number) --
+   deliberately not a month-grid calendar. Every card here is already
+   bookable, so there's nothing faded/disabled to render: a day with no
+   openings, or one that's already passed, simply never gets a card. */
+.day-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    gap: 0.6rem;
+}
+
+.day-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    padding: 0.9rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    text-decoration: none;
+    color: var(--fg);
+    transition: border-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.day-card:hover {
     border-color: var(--accent);
     box-shadow: var(--shadow-sm);
     transform: translateY(-1px);
 }
 
-.calendar-day.has-slots.is-selected {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-    box-shadow: 0 3px 10px rgba(42, 93, 176, 0.35);
+.day-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
-/* A quiet nudge shown before any day is picked -- the times panel below
-   only appears once a day link is clicked, so the two choices (day,
-   then time) never compete for attention at once. */
-.calendar-hint {
-    margin: 1.1rem 0 0;
-    padding-top: 1.1rem;
-    border-top: 1px dashed var(--border);
-    color: var(--muted);
-    font-size: 0.9rem;
-    font-style: italic;
-}
-
-@keyframes fadeSlideIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.time-panel {
-    margin-top: 1.1rem;
-    padding-top: 1.1rem;
-    border-top: 1px solid var(--border);
-    animation: fadeSlideIn 0.25s ease-out;
-    /* The day links below point at "#times" so picking a day (which can
-       be a long scroll past however many months are showing) jumps
-       straight to the times instead of leaving the customer to hunt for
-       what just appeared. This keeps a little breathing room above it
-       when the browser snaps to the anchor. */
-    scroll-margin-top: 1rem;
-}
-
-.selected-day-label {
-    margin: 0 0 0.85rem;
+.day-card-weekday {
+    font-size: 0.7rem;
     font-weight: 700;
-    font-size: 0.95rem;
-    color: var(--fg);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
 }
 
-.details-panel {
-    animation: fadeSlideIn 0.25s ease-out;
+.day-card-date { font-size: 0.95rem; font-weight: 700; }
+
+/* The time and details stages both open with this: what was already
+   chosen, plus a way to go back and change it -- so committing to a day
+   or a time is never a dead end. */
+.stage-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1.1rem;
+    border-bottom: 1px solid var(--border);
 }
+
+.stage-header-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+
+.stage-eyebrow {
+    margin: 0 0 0.15rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+}
+
+.stage-heading { margin: 0; font-size: 1.05rem; font-weight: 700; }
+
+.continue-btn { margin-top: 1.25rem; }
 
 .slot-grid {
     display: grid;
@@ -380,6 +363,13 @@ button, .btn {
 
 button:hover, .btn:hover { background: var(--accent-dark); box-shadow: var(--shadow-md); transform: translateY(-1px); }
 button:active, .btn:active { transform: translateY(0); }
+button:disabled, .btn[aria-disabled="true"] {
+    background: var(--border);
+    color: var(--muted);
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
 
 .btn-secondary {
     background: var(--surface);
@@ -434,9 +424,10 @@ button:active, .btn:active { transform: translateY(0); }
     }
     .site-header nav a { margin-left: 0; margin-right: 1.1rem; }
     main { padding: 1.5rem 1rem 2.5rem; }
-    fieldset, .card { padding: 1.15rem; }
+    .card { padding: 1.15rem; }
     h1 { font-size: 1.35rem; }
-    .calendar-day { font-size: 0.78rem; }
+    .day-card-grid { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
     .slot-grid { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
+    .stage-header { flex-direction: column; }
     .page-intro--row { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
 }

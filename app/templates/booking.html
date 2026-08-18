@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-intro">
     <h1>Book an appointment</h1>
-    <p>Pick a day, then a time, then enter your details. No account needed &mdash; just your name.</p>
+    <p>No account needed &mdash; just your name.</p>
 </div>
 
 {% if error %}
@@ -12,71 +12,80 @@
 
 {% if not has_any_slots %}
 <div class="card">
-    <p>There are no open slots in the next few weeks. Please check back later.</p>
+    <p class="empty-state">There are no open slots in the next few weeks. Please check back later.</p>
 </div>
 {% else %}
-<form method="post" action="/book" class="booking-form">
-    <fieldset>
-        <legend>1. Book a time</legend>
-        <div class="calendar-list">
-            {% for month in calendar_months %}
-            <div class="calendar-month">
-                <h3 class="calendar-month-label">{{ month.label }}</h3>
-                <div class="calendar-grid" style="grid-template-columns: repeat({{ weekday_labels|length }}, 1fr);">
-                    {% for label in weekday_labels %}
-                    <span class="calendar-weekday">{{ label }}</span>
-                    {% endfor %}
-                    {% for week in month.weeks %}
-                    {% for day in week %}
-                    {% if day.has_slots %}
-                    <a href="/?day={{ day.iso }}#times" aria-label="{{ day.aria_label }}"
-                       class="calendar-day has-slots{{ ' is-selected' if day.is_selected else '' }}">{{ day.day_number }}</a>
-                    {% else %}
-                    <span class="calendar-day{{ '' if day.in_month else ' is-outside-month' }}" aria-hidden="true">{{ day.day_number }}</span>
-                    {% endif %}
-                    {% endfor %}
-                    {% endfor %}
-                </div>
-            </div>
+
+<div class="progress-steps" aria-hidden="true">
+    <span class="progress-step {{ 'is-active' if stage in ('day', 'time') else 'is-done' }}">
+        <span class="progress-step-num">1</span> Book a slot
+    </span>
+    <span class="progress-step {{ 'is-active' if stage == 'details' else '' }}">
+        <span class="progress-step-num">2</span> Your details
+    </span>
+</div>
+
+<div class="card">
+    {% if stage == 'day' %}
+    <h2 class="card-heading">Choose a day</h2>
+    <div class="day-card-grid">
+        {% for day in day_cards %}
+        <a href="/?day={{ day.iso }}" class="day-card" aria-label="{{ day.aria_label }}">
+            <span class="day-card-weekday">{{ day.weekday }}</span>
+            <span class="day-card-date">{{ day.label }}</span>
+        </a>
+        {% endfor %}
+    </div>
+
+    {% elif stage == 'time' %}
+    <div class="stage-header">
+        <div>
+            <p class="stage-eyebrow">Selected day</p>
+            <p class="stage-heading">{{ selected_date_label }}</p>
+        </div>
+        <a href="/" class="btn btn-secondary btn-small">Change day</a>
+    </div>
+    <form method="get" action="/">
+        <input type="hidden" name="day" value="{{ selected_date.isoformat() }}">
+        {% if not selected_slots %}
+        <p class="empty-state">No open times left on this day. <a href="/">Pick another day</a>.</p>
+        {% else %}
+        <div class="slot-grid">
+            {% for s in selected_slots %}
+            <label class="slot-option">
+                <input type="radio" name="slot" value="{{ s.strftime('%Y-%m-%dT%H:%M:%S') }}" required>
+                <span>{{ s.strftime('%I:%M %p') }}</span>
+            </label>
             {% endfor %}
         </div>
-
-        {% if not selected_date %}
-        <p class="calendar-hint">Choose a day above to see its open times.</p>
-        {% else %}
-        <div class="time-panel" id="times">
-            <p class="selected-day-label">Times for {{ selected_date.strftime('%A, %B %d') }}</p>
-            {% if not selected_slots %}
-            <p>No open times left on this day. Pick another day above.</p>
-            {% else %}
-            <div class="slot-grid">
-                {% for slot in selected_slots %}
-                <label class="slot-option">
-                    <input type="radio" name="slot_start" value="{{ slot.strftime('%Y-%m-%dT%H:%M:%S') }}" required>
-                    <span>{{ slot.strftime('%I:%M %p') }}</span>
-                </label>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
+        <button type="submit" class="continue-btn">Continue</button>
         {% endif %}
-    </fieldset>
+    </form>
 
-    {% if selected_date and selected_slots %}
-    <fieldset class="details-panel">
-        <legend>2. Your details</legend>
+    {% else %}
+    <div class="stage-header">
+        <div>
+            <p class="stage-eyebrow">Your appointment</p>
+            <p class="stage-heading">{{ booking_summary }}</p>
+        </div>
+        <div class="stage-header-actions">
+            <a href="/?day={{ selected_date.isoformat() }}" class="btn btn-secondary btn-small">Change time</a>
+            <a href="/" class="btn btn-secondary btn-small">Change day</a>
+        </div>
+    </div>
+    <form method="post" action="/book">
+        <input type="hidden" name="slot_start" value="{{ selected_slot.strftime('%Y-%m-%dT%H:%M:%S') }}">
         <label>
             Name
-            <input type="text" name="customer_name" value="{{ form.customer_name or '' }}" required>
+            <input type="text" name="customer_name" value="{{ form.customer_name or '' }}" required autofocus>
         </label>
         <label>
             Email (optional)
             <input type="email" name="customer_email" value="{{ form.customer_email or '' }}">
         </label>
-    </fieldset>
-
-    <button type="submit">Confirm booking</button>
+        <button type="submit">Confirm booking</button>
+    </form>
     {% endif %}
-</form>
+</div>
 {% endif %}
 {% endblock %}

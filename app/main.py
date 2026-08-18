@@ -6,7 +6,6 @@ redirect). No SQL and no business rules live in this file on purpose --
 see booking_service.py for that.
 """
 
-import calendar as calendar_module
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 
@@ -17,8 +16,6 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import booking_service, config, db
-
-_WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
 @asynccontextmanager
@@ -44,6 +41,13 @@ def _long_date(d: date) -> str:
     return f"{d.strftime('%A, %B')} {d.day}, {d.year}"
 
 
+def _short_date(d: date) -> str:
+    """Formats like 'Wednesday, August 19' -- same portability note as
+    _long_date, just without the year (used in on-page headings where
+    the year is implied)."""
+    return f"{d.strftime('%A, %B')} {d.day}"
+
+
 def _format_slot(slot_start_str: str) -> str:
     """Jinja filter: the raw stored `slot_start` ("2026-08-19T09:00:00")
     into something a customer or owner would actually want to read
@@ -57,72 +61,44 @@ def _format_slot(slot_start_str: str) -> str:
 templates.env.filters["format_slot"] = _format_slot
 
 
-def _build_calendar(available_dates: list[date], selected_date: date | None) -> dict:
-    """Builds one weekday-only month-grid per calendar month that has at
-    least one bookable day, so the booking page can show a real "pick a
-    day" month calendar instead of a flat list. This is a display
-    concern only -- it doesn't change what a slot *is*, so it lives here
-    in the web layer rather than in booking_service.py.
-
-    Only the weekdays that are ever business days get a column -- with
-    the default Mon-Fri config that means Saturday and Sunday are
-    dropped entirely instead of rendering as two permanently-empty
-    columns every single week.
+def _build_day_cards(available_dates: list[date]) -> list[dict]:
+    """One compact card per bookable day -- weekday + month + day number,
+    e.g. "WED" / "Aug 19" -- for the day-picking stage. Deliberately not
+    a month calendar grid: with a 30-day window there's no real need to
+    show which weekday-of-the-month something falls on, and a plain
+    scannable list of only the days that actually have openings is both
+    shorter and easier to pick from than a grid mostly full of blanks.
+    Already-passed days are never in `available_dates` in the first
+    place (booking_service excludes them), so there's nothing to filter
+    out here -- they just never existed on this list.
     """
-    if not available_dates:
-        return {"weekday_labels": [], "months": []}
-
-    # Which of the 7 weekday columns (Mon=0..Sun=6) are ever business
-    # days, in order -- e.g. [0, 1, 2, 3, 4] for the default Mon-Fri.
-    weekday_positions = sorted(set(config.BUSINESS_DAYS))
-    weekday_labels = [_WEEKDAY_NAMES[i] for i in weekday_positions]
-
-    dates_by_month: dict[tuple[int, int], set[date]] = {}
-    for d in available_dates:
-        dates_by_month.setdefault((d.year, d.month), set()).add(d)
-
-    earliest_available = available_dates[0]
-    cal = calendar_module.Calendar(firstweekday=0)  # weeks start on Monday
-    months = []
-    for year, month in sorted(dates_by_month):
-        available_in_month = dates_by_month[(year, month)]
-        weeks = []
-        for week in cal.monthdatescalendar(year, month):
-            # Skip weeks that are entirely before the first bookable day --
-            # no point showing rows of already-passed dates, that's just
-            # clutter the customer has to scroll past.
-            if week[-1] < earliest_available:
-                continue
-            weeks.append(
-                [
-                    {
-                        "iso": week[i].isoformat(),
-                        "day_number": week[i].day,
-                        "aria_label": _long_date(week[i]),
-                        "in_month": week[i].month == month,
-                        "has_slots": week[i] in available_in_month,
-                        "is_selected": week[i] == selected_date,
-                    }
-                    for i in weekday_positions
-                ]
-            )
-        months.append({"label": date(year, month, 1).strftime("%B %Y"), "weeks": weeks})
-    return {"weekday_labels": weekday_labels, "months": months}
+    return [
+        {
+            "iso": d.isoformat(),
+            "weekday": d.strftime("%a").upper(),
+            "label": f"{d.strftime('%b')} {d.day}",
+            "aria_label": _long_date(d),
+        }
+        for d in available_dates
+    ]
 
 
 def _render_booking_page(
     request: Request,
     *,
     day: str | None,
+    slot: str | None,
     error: str | None,
     form: dict,
     status_code: int = 200,
 ):
-    """Shared rendering for the booking page: figures out which day is
-    selected (only from an explicit `day` query param -- no day is picked
-    automatically, so the customer sees the calendar by itself first and
-    times only appear once they actually choose a day), builds the
-    calendar, and renders it.
+    """Shared rendering for the booking page. The page has exactly three
+    stages, driven entirely by which of the `day`/`slot` query params
+    resolve to something real -- no day picked yet means stage "day", a
+    valid day but no valid slot means stage "time", and both valid means
+    stage "details". Each stage shows only itself: the customer is never
+    looking at the day list and the time grid (or the time grid and the
+    details form) at the same time.
     """
     conn = db.get_connection()
     try:
@@ -133,6 +109,7 @@ def _render_booking_page(
     available_dates = sorted(grouped.keys())
 
     selected_date = None
+    day_error = None
     if day:
         try:
             candidate = datetime.strptime(day, "%Y-%m-%d").date()
@@ -140,19 +117,49 @@ def _render_booking_page(
             candidate = None
         if candidate in grouped:
             selected_date = candidate
+        else:
+            # A day link/bookmark that no longer resolves to anything
+            # bookable -- most likely every slot on that day got taken
+            # between page load and click. Don't fail silently; say so
+            # and fall back to the day-picking stage.
+            day_error = "That day is no longer available. Please pick another."
 
-    calendar = _build_calendar(available_dates, selected_date)
+    selected_slot = None
+    slot_error = None
+    if selected_date and slot:
+        try:
+            candidate_slot = datetime.strptime(slot, booking_service.SLOT_FORMAT)
+        except ValueError:
+            candidate_slot = None
+        if candidate_slot and candidate_slot in grouped[selected_date]:
+            selected_slot = candidate_slot
+        else:
+            slot_error = "That time was just taken. Please pick another."
+
+    if selected_slot is not None:
+        stage = "details"
+    elif selected_date is not None:
+        stage = "time"
+    else:
+        stage = "day"
 
     return templates.TemplateResponse(
         request,
         "booking.html",
         {
-            "calendar_months": calendar["months"],
-            "weekday_labels": calendar["weekday_labels"],
+            "stage": stage,
+            "day_cards": _build_day_cards(available_dates),
             "selected_date": selected_date,
+            "selected_date_label": _short_date(selected_date) if selected_date else None,
             "selected_slots": grouped.get(selected_date, []) if selected_date else [],
+            "selected_slot": selected_slot,
+            "booking_summary": (
+                _format_slot(selected_slot.strftime(booking_service.SLOT_FORMAT))
+                if selected_slot
+                else None
+            ),
             "has_any_slots": bool(available_dates),
-            "error": error,
+            "error": error or day_error or slot_error,
             "form": form,
         },
         status_code=status_code,
@@ -165,8 +172,13 @@ def _render_booking_page(
 
 
 @app.get("/", response_class=HTMLResponse)
-def booking_page(request: Request, error: str | None = None, day: str | None = None):
-    return _render_booking_page(request, day=day, error=error, form={})
+def booking_page(
+    request: Request,
+    error: str | None = None,
+    day: str | None = None,
+    slot: str | None = None,
+):
+    return _render_booking_page(request, day=day, slot=slot, error=error, form={})
 
 
 @app.post("/book")
@@ -176,9 +188,13 @@ def book_slot(
     customer_name: str = Form(...),
     customer_email: str = Form(""),
 ):
-    # If we need to redisplay the form, keep the customer on the day they
-    # were looking at rather than bouncing them back to the first day.
+    # If we need to redisplay the form, keep the customer where they were:
+    # a bad name/email should redisplay the details stage with the same
+    # slot still selected, while a slot that just got taken naturally
+    # falls back to the time stage, since it won't resolve as valid
+    # anymore (see _render_booking_page).
     submitted_day = slot_start[:10] if slot_start else None
+    submitted_slot = slot_start or None
 
     conn = db.get_connection()
     try:
@@ -190,6 +206,7 @@ def book_slot(
             return _render_booking_page(
                 request,
                 day=submitted_day,
+                slot=submitted_slot,
                 error=exc.message,
                 form={"customer_name": customer_name, "customer_email": customer_email},
                 status_code=422,
@@ -198,6 +215,7 @@ def book_slot(
             return _render_booking_page(
                 request,
                 day=submitted_day,
+                slot=submitted_slot,
                 error=str(exc),
                 form={"customer_name": customer_name, "customer_email": customer_email},
                 status_code=409,
