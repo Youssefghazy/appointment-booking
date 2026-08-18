@@ -8,8 +8,8 @@ implement → analyze.
 
 ## What it does
 
-- Customers pick a day from a calendar, then a time on that day, and book
-  it by giving just their name (email optional) — no account needed.
+- Customers pick a day, then a time on that day, then book it by giving
+  just their name (email optional) — no account needed.
 - A slot can never be double-booked, **even if two people try to book it
   at the exact same moment.** This is enforced by the database itself (a
   partial unique index + transaction), not just by the page.
@@ -32,6 +32,7 @@ app/                 The application
 
 tests/               Automated tests (pytest)
 ├── test_booking_flow.py     Booking a slot + input validation
+├── test_booking_stages.py   The booking page's day/time/details progressive disclosure
 ├── test_double_booking.py   The no-double-booking guarantee, under real concurrency
 ├── test_owner_view.py       Owner passcode gate
 └── test_cancellation.py     Owner cancel + customer self-cancel

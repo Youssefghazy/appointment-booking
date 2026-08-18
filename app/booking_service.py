@@ -96,11 +96,6 @@ def slots_by_date(conn: sqlite3.Connection, now: datetime | None = None) -> dict
     return grouped
 
 
-def is_business_day(day: date) -> bool:
-    """True if `day`'s weekday is one of the configured business days."""
-    return day.weekday() in config.BUSINESS_DAYS
-
-
 # ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------

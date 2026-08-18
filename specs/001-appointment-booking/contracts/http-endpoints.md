@@ -8,10 +8,17 @@ a booking.
 
 ## `GET /`
 
-Customer booking page. Renders a month calendar of days that have open
-slots (business hours minus active bookings, next 30 days, past slots
-excluded); picking a day (`?day=YYYY-MM-DD`) shows that day's open times
-as a simple form: pick a time, enter name/email, submit.
+Customer booking page. Three stages, all driven by query params and shown
+one at a time (business hours minus active bookings, next 30 days, past
+slots excluded):
+
+- No params: a compact list of days that currently have open slots.
+- `?day=YYYY-MM-DD`: that day's open times, if the day still resolves to
+  something bookable (otherwise falls back to the day list with a
+  message).
+- `?day=YYYY-MM-DD&slot=...`: the name/email form for that slot, if it
+  still resolves to something bookable (otherwise falls back to the time
+  list with a message).
 
 - **Response**: 200, HTML.
 
@@ -89,8 +96,9 @@ cookie.
 - **Success**: sets `status='cancelled'`, `cancelled_by='owner'`; 303
   redirect back to `GET /owner/bookings`. The slot is immediately available
   again on `GET /`.
-- **Unknown booking / already cancelled**: 404, re-renders the owner
-  bookings list with an error note; no crash.
+- **Unknown booking / already cancelled**: no state change; still a 303
+  redirect back to `GET /owner/bookings` (the cancel is a safe no-op — see
+  `booking_service.cancel_booking`), not a 404. No crash either way.
 - **No valid session**: 303 redirect to `GET /owner`.
 
 ## `POST /owner/logout`

@@ -24,10 +24,10 @@ Visit `http://127.0.0.1:8000/` in a browser.
 
 ## Manual validation scenarios
 
-1. **Book a slot (User Story 1)**: On `/`, pick any listed open slot, enter
-   a name and phone number, submit. Expect a confirmation page with a
-   cancellation link, and the slot no longer listed as available on a page
-   refresh.
+1. **Book a slot (User Story 1)**: On `/`, pick a day, then an open time on
+   that day, then enter a name (email optional) and submit. Expect a
+   confirmation page with a cancellation link, and the slot no longer
+   listed as available on a page refresh.
 2. **Reject invalid input (FR-008)**: Try submitting the booking form with
    an empty name. Expect a clear validation error and no new booking.
 3. **Owner view (User Story 2)**: Visit `/owner`, enter the passcode from

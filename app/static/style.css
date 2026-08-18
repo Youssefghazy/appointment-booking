@@ -394,8 +394,6 @@ button:disabled, .btn[aria-disabled="true"] {
     margin: 0 0 1.25rem;
 }
 
-.success { color: var(--success); font-weight: 600; }
-
 .bookings-table { width: 100%; border-collapse: collapse; }
 .bookings-table th, .bookings-table td {
     text-align: left;

@@ -36,6 +36,21 @@ clarification questions in `CLARIFICATIONS.md`.
   scrolling list of all days at once. Same underlying slots and business
   rules; this only changes how they're presented.
 
+### Amendment 2026-08-18 (post-submission, user-directed, follow-up)
+
+- Change: The month-calendar day picker from the amendment above was
+  replaced with a compact, progressive-disclosure flow after user feedback
+  that a full calendar grid felt long and cluttered for a simple booking.
+  The booking page is now exactly two cards — "Book a slot" and "Your
+  details" — and within "Book a slot" only one stage is visible at a time:
+  a scannable list of upcoming days with open slots, then (once a day is
+  picked) that day's times with a "Change day" link back, then (once a
+  time is picked) the name/email form with a small booking summary and
+  "Change time"/"Change day" links. Still the same underlying slots and
+  business rules — this only changes presentation, and adds friendly
+  fallback messages if a picked day or slot stops being available before
+  the customer finishes (see `app/main.py::_render_booking_page`).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Book an available appointment (Priority: P1)
