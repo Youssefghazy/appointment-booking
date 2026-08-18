@@ -48,12 +48,18 @@ def _build_calendar_months(available_dates: list[date], selected_date: date | No
     for d in available_dates:
         dates_by_month.setdefault((d.year, d.month), set()).add(d)
 
+    earliest_available = available_dates[0]
     cal = calendar_module.Calendar(firstweekday=0)  # weeks start on Monday
     months = []
     for year, month in sorted(dates_by_month):
         available_in_month = dates_by_month[(year, month)]
         weeks = []
         for week in cal.monthdatescalendar(year, month):
+            # Skip weeks that are entirely before the first bookable day --
+            # no point showing rows of already-passed dates, that's just
+            # clutter the customer has to scroll past.
+            if week[-1] < earliest_available:
+                continue
             weeks.append(
                 [
                     {
@@ -79,8 +85,10 @@ def _render_booking_page(
     status_code: int = 200,
 ):
     """Shared rendering for the booking page: figures out which day is
-    selected (from the `day` query param, falling back to the first day
-    with any open slots), builds the calendar, and renders it.
+    selected (only from an explicit `day` query param -- no day is picked
+    automatically, so the customer sees the calendar by itself first and
+    times only appear once they actually choose a day), builds the
+    calendar, and renders it.
     """
     conn = db.get_connection()
     try:
@@ -98,8 +106,6 @@ def _render_booking_page(
             candidate = None
         if candidate in grouped:
             selected_date = candidate
-    if selected_date is None and available_dates:
-        selected_date = available_dates[0]
 
     return templates.TemplateResponse(
         request,

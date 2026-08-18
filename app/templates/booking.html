@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Book an appointment{% endblock %}
 {% block content %}
-<h1>Book an appointment</h1>
-<p>Pick a day and time below, then enter your details. No account needed &mdash; just your name.</p>
+<div class="page-intro">
+    <h1>Book an appointment</h1>
+    <p>Pick a day, then a time, then enter your details. No account needed &mdash; just your name.</p>
+</div>
 
 {% if error %}
 <p class="error">{{ error }}</p>
@@ -41,25 +43,29 @@
             {% endfor %}
         </div>
 
-        {% if selected_date %}
-        <p class="selected-day-label">Times for {{ selected_date.strftime('%A, %B %d') }}</p>
-        {% if not selected_slots %}
-        <p>No open times left on this day. Pick another day above.</p>
+        {% if not selected_date %}
+        <p class="calendar-hint">Choose a day above to see its open times.</p>
         {% else %}
-        <div class="slot-grid">
-            {% for slot in selected_slots %}
-            <label class="slot-option">
-                <input type="radio" name="slot_start" value="{{ slot.strftime('%Y-%m-%dT%H:%M:%S') }}" required>
-                <span>{{ slot.strftime('%I:%M %p') }}</span>
-            </label>
-            {% endfor %}
+        <div class="time-panel">
+            <p class="selected-day-label">Times for {{ selected_date.strftime('%A, %B %d') }}</p>
+            {% if not selected_slots %}
+            <p>No open times left on this day. Pick another day above.</p>
+            {% else %}
+            <div class="slot-grid">
+                {% for slot in selected_slots %}
+                <label class="slot-option">
+                    <input type="radio" name="slot_start" value="{{ slot.strftime('%Y-%m-%dT%H:%M:%S') }}" required>
+                    <span>{{ slot.strftime('%I:%M %p') }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
         {% endif %}
     </fieldset>
 
     {% if selected_date and selected_slots %}
-    <fieldset>
+    <fieldset class="details-panel">
         <legend>2. Your details</legend>
         <label>
             Name

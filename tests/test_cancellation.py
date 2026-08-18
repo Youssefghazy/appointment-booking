@@ -35,8 +35,8 @@ def test_owner_can_cancel_booking(client):
     assert cancel_resp.status_code == 303
 
     # The slot must be bookable again immediately.
-    home = client.get("/")
-    assert slot_str in home.text
+    day_page = client.get(f"/?day={slot_str[:10]}")
+    assert slot_str in day_page.text
 
     bookings_page_after = client.get("/owner/bookings")
     assert "No upcoming bookings" in bookings_page_after.text
@@ -53,8 +53,8 @@ def test_customer_can_cancel_via_link(client):
     assert submit.status_code == 200
     assert "Booking cancelled" in submit.text
 
-    home = client.get("/")
-    assert slot_str in home.text
+    day_page = client.get(f"/?day={slot_str[:10]}")
+    assert slot_str in day_page.text
 
 
 def test_reusing_cancel_link_is_safe(client):
