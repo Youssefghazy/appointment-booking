@@ -16,6 +16,12 @@ upcoming bookings after entering a shared passcode (no owner account
 system)." Derived from the student's handwritten `spec.md` and the answered
 clarification questions in `CLARIFICATIONS.md`.
 
+## Clarifications
+
+### Session 2026-08-18
+
+- Q: Your handwritten spec.md said the owner can "cancel a booking." Should the owner also be able to cancel a booking from their own view, not just view it? → A: Yes — the owner's view includes a cancel action per booking, and owner-initiated cancellation frees the slot immediately, same as customer self-cancellation.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Book an available appointment (Priority: P1)
@@ -51,11 +57,12 @@ as available to a second visitor.
 
 ---
 
-### User Story 2 - Owner views upcoming bookings (Priority: P2)
+### User Story 2 - Owner views and manages upcoming bookings (Priority: P2)
 
 The business owner opens the bookings view, enters the shared passcode, and
 sees every upcoming booking with the customer's name, contact info, and
-appointment time, so they know their schedule.
+appointment time, so they know their schedule. If a customer calls to
+cancel by phone, the owner can cancel that booking directly from this view.
 
 **Why this priority**: Necessary for the business to actually act on the
 bookings customers make, but the system still delivers customer value
@@ -63,8 +70,8 @@ bookings customers make, but the system still delivers customer value
 
 **Independent Test**: Can be fully tested by creating one or more bookings,
 then visiting the owner view, entering the correct passcode, and confirming
-all bookings appear with correct details; entering an incorrect passcode
-must not reveal any booking data.
+all bookings appear with correct details and a working cancel action;
+entering an incorrect passcode must not reveal any booking data.
 
 **Acceptance Scenarios**:
 
@@ -74,6 +81,9 @@ must not reveal any booking data.
 2. **Given** the bookings view, **When** an incorrect passcode is submitted,
    **Then** no booking data is shown and a generic access-denied message is
    displayed.
+3. **Given** an upcoming booking shown in the owner's view, **When** the
+   owner cancels it, **Then** the booking is marked cancelled and its slot
+   immediately becomes available again on the public booking page.
 
 ---
 
@@ -152,6 +162,9 @@ afterward.
   passwords anywhere in the booking flow.
 - **FR-010**: System MUST NOT reveal any booking or customer data to anyone
   who has not provided the correct owner passcode.
+- **FR-011**: System MUST allow the business owner, after providing the
+  correct passcode, to cancel any upcoming booking directly from the
+  owner's view, immediately freeing that slot.
 
 ### Key Entities *(include if feature involves data)*
 
