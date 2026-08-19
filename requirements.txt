@@ -6,3 +6,9 @@ python-dotenv==1.0.1
 itsdangerous==2.2.0
 pytest==8.3.4
 httpx==0.28.1
+
+# Optional observability layer (Session 8 homework). The app runs fine
+# without Langfuse configured -- see app/observability.py -- but the
+# package needs to be installed for that code path to be reachable at
+# all, so it's a normal (not commented-out) dependency here.
+langfuse==4.14.4

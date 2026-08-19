@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: appointment-booking
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --no-access-log
+    envVars:
+      - key: OWNER_PASSCODE
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      # Optional -- only needed if you want Langfuse tracing (see README).
+      # Leave unset and the app runs the same, just without Langfuse spans.
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: LANGFUSE_HOST
+        value: https://cloud.langfuse.com

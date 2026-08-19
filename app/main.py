@@ -6,6 +6,9 @@ redirect). No SQL and no business rules live in this file on purpose --
 see booking_service.py for that.
 """
 
+import logging
+import time
+import uuid
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 
@@ -15,7 +18,25 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import booking_service, config, db
+from app import booking_service, config, db, observability
+from app.logging_config import setup_logging
+
+# Configured at import time (not inside lifespan) so every log line --
+# including ones emitted while the app is still starting up -- comes out
+# as JSON, not just the ones after startup finishes.
+setup_logging()
+logger = logging.getLogger("app")
+
+
+def _log_event(name: str, **fields) -> None:
+    """Records one business event two ways: as a structured JSON log line
+    (always, free, no account needed) and as a Langfuse span (only if
+    Langfuse is configured -- see app/observability.py). `fields` must
+    stay small and non-personal: never pass a customer's name or email
+    in here.
+    """
+    logger.info(name, extra=fields)
+    observability.record_event(name, **fields)
 
 
 @asynccontextmanager
@@ -24,13 +45,55 @@ async def lifespan(app: FastAPI):
     # than silently starting an owner view nothing can ever unlock.
     config.require_owner_passcode()
     db.init_db()
+    logger.info("app_started")
     yield
+    # Langfuse batches events and sends them in the background; flush on
+    # shutdown so the last few events of a short-lived process aren't lost.
+    observability.flush()
+    logger.info("app_stopped")
 
 
 app = FastAPI(title="Appointment Booking", lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=config.SESSION_SECRET)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Logs one structured JSON line per HTTP request: method, path,
+    status code, and how long it took. This is the general-purpose
+    observability layer -- it covers every route automatically, on top
+    of the more specific business-event logs added at the routes below.
+    """
+    request_id = uuid.uuid4().hex[:12]
+    start = time.perf_counter()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        logger.info(
+            "request_handled",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": status_code,
+                "duration_ms": duration_ms,
+                "client_ip": request.client.host if request.client else None,
+            },
+        )
+
+
+@app.get("/healthz")
+def healthz():
+    """Plain liveness check -- returns instantly, touches no database.
+    Useful for confirming a deployment actually came up, and as a target
+    for any uptime monitor you point at the public URL later."""
+    return {"status": "ok"}
 
 
 def _long_date(d: date) -> str:
@@ -203,6 +266,12 @@ def book_slot(
                 conn, slot_start, customer_name, customer_email or None
             )
         except booking_service.InvalidBookingError as exc:
+            _log_event(
+                "booking_rejected",
+                reason="invalid_input",
+                field=exc.field,
+                slot_start=submitted_slot,
+            )
             return _render_booking_page(
                 request,
                 day=submitted_day,
@@ -212,6 +281,7 @@ def book_slot(
                 status_code=422,
             )
         except booking_service.SlotAlreadyBookedError as exc:
+            _log_event("booking_rejected", reason="slot_taken", slot_start=submitted_slot)
             return _render_booking_page(
                 request,
                 day=submitted_day,
@@ -223,6 +293,7 @@ def book_slot(
     finally:
         conn.close()
 
+    _log_event("booking_created", slot_start=submitted_slot, booking_id=booking["id"])
     return RedirectResponse(url=f"/confirmation/{booking['cancel_token']}", status_code=303)
 
 
@@ -272,6 +343,12 @@ def cancel_submit(request: Request, cancel_token: str):
     finally:
         conn.close()
 
+    _log_event(
+        "booking_cancelled",
+        by="customer",
+        ok=result["ok"],
+        reason=result.get("reason"),
+    )
     return templates.TemplateResponse(
         request,
         "cancel.html",
@@ -299,10 +376,12 @@ def owner_login_page(request: Request, error: str | None = None):
 def owner_login_submit(request: Request, passcode: str = Form(...)):
     if passcode == config.require_owner_passcode():
         request.session["owner_authenticated"] = True
+        _log_event("owner_login", ok=True)
         return RedirectResponse(url="/owner/bookings", status_code=303)
 
     # Deliberately generic: never reveal whether bookings exist, just
     # that the passcode was wrong (FR-010).
+    _log_event("owner_login", ok=False)
     return templates.TemplateResponse(
         request,
         "owner_login.html",
@@ -331,9 +410,16 @@ def owner_cancel_booking(request: Request, booking_id: int):
 
     conn = db.get_connection()
     try:
-        booking_service.cancel_booking(conn, booking_id=booking_id, by="owner")
+        result = booking_service.cancel_booking(conn, booking_id=booking_id, by="owner")
     finally:
         conn.close()
+    _log_event(
+        "booking_cancelled",
+        by="owner",
+        ok=result["ok"],
+        reason=result.get("reason"),
+        booking_id=booking_id,
+    )
     return RedirectResponse(url="/owner/bookings", status_code=303)
 
 

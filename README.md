@@ -27,6 +27,8 @@ app/                 The application
 ├── booking_service.py Business logic: list slots, book, cancel
 ├── db.py              SQLite connection + schema
 ├── config.py          Reads settings from environment variables
+├── logging_config.py  Structured JSON logging setup
+├── observability.py   Optional Langfuse tracing (no-op if unconfigured)
 ├── templates/          HTML pages (Jinja2)
 └── static/             CSS
 
@@ -119,6 +121,78 @@ under a genuine race.
 
 Cancelling a booking just flips its `status` to `'cancelled'`, which drops
 it out of that unique index, so the slot is immediately available again.
+
+## Observability
+
+The app has two independent layers of observability, both off by default
+in the sense that neither requires you to change any code -- only the
+second one needs any setup at all.
+
+**Structured JSON logs (always on).** Every HTTP request logs one JSON
+line (method, path, status code, how long it took), and every meaningful
+business event -- a booking created, a booking rejected and why, a
+cancellation, an owner login attempt -- logs its own JSON line too. These
+print straight to the terminal (`stdout`), which is exactly what a host
+like Render collects as your service's log stream, so there's nothing
+extra to configure. A booking looks like this in the logs:
+
+```json
+{"timestamp": "2026-08-19T14:03:11+00:00", "level": "INFO", "logger": "app", "message": "booking_created", "slot_start": "2026-08-19T14:00:00", "booking_id": 1}
+```
+
+None of these events ever include a customer's name or email -- only
+non-personal fields like the slot time, a booking id, or a success/fail
+reason.
+
+**Langfuse tracing (optional).** [Langfuse](https://langfuse.com) is
+built for tracing LLM/agent calls, which this app doesn't make -- but it
+also works as a general tracing backend, so the same business events
+above are also sent there as spans, *if* you've configured it, giving you
+a searchable dashboard instead of raw log lines. To turn it on:
+
+1. Create a free account at [Langfuse Cloud](https://langfuse.com/pricing)
+   (the Hobby plan is free, no card required) and create a project.
+2. Copy that project's public key and secret key.
+3. Set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` (and optionally
+   `LANGFUSE_HOST`, if not using Langfuse Cloud) in `.env` locally, or as
+   environment variables on your host.
+
+Leave those unset and `app/observability.py` quietly does nothing --
+nothing else about the app changes or breaks.
+
+## Deploying
+
+The app is a normal FastAPI service, so it deploys the same way most
+small Python web apps do. A `render.yaml` is included for
+[Render](https://render.com)'s free tier:
+
+1. Push this repo to GitHub (already done if you're reading this from
+   the repo).
+2. On [Render](https://dashboard.render.com), **New +** → **Blueprint**,
+   and point it at this repository. Render reads `render.yaml`
+   automatically and fills in the build/start commands.
+3. When prompted, set `OWNER_PASSCODE` (required, no default). Leave the
+   `LANGFUSE_*` variables unset unless you've set up Langfuse (see
+   above).
+4. Deploy. Render gives you a public `https://<your-service>.onrender.com`
+   URL. `GET /healthz` returns `{"status": "ok"}` and is a good way to
+   confirm the deploy actually came up.
+
+Two free-tier things worth knowing about, so nothing looks "broken" when
+it's actually just how the free tier works:
+
+- **Spin-down.** A free Render service spins down after 15 minutes with
+  no traffic, and takes about a minute to spin back up on the next
+  request -- the first visit after a quiet period will just look slow to
+  load, not down.
+- **Ephemeral disk.** Render's free tier doesn't persist the filesystem
+  across restarts/redeploys, and this app stores its data in a SQLite
+  *file* (`data/booking.db`). That means every time the free service
+  restarts (including a spin-down/spin-up cycle), **all bookings in it
+  are wiped** and it starts from an empty database again. That's fine for
+  demoing the app or for this assignment, but it is not how you'd run
+  this for a real business -- that would need either a paid Render disk
+  or a hosted database instead of a local SQLite file.
 
 ## Notes on scope
 
