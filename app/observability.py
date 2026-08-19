@@ -28,23 +28,39 @@ _SECRET_KEY = os.environ.get("LANGFUSE_SECRET_KEY")
 
 _client = None
 ENABLED = False
+_INIT_ERROR = False
 
+# Deliberately does no logging here: this module is imported before
+# app/main.py has called setup_logging(), so anything logged at import
+# time would go through Python's unconfigured default logger and get
+# silently dropped. Call log_status() explicitly, after logging is set
+# up, to report what happened here.
 if _PUBLIC_KEY and _SECRET_KEY:
     try:
         from langfuse import get_client
 
         _client = get_client()
         ENABLED = True
+    except Exception:  # pragma: no cover - optional dependency, must not crash startup
+        _client = None
+        ENABLED = False
+        _INIT_ERROR = True
+
+
+def log_status() -> None:
+    """Logs whether Langfuse ended up enabled. Call this once, after
+    app.logging_config.setup_logging() has run, so the message actually
+    reaches the JSON log output instead of being dropped.
+    """
+    if ENABLED:
         logger.info(
             "langfuse_enabled",
             extra={"host": os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")},
         )
-    except Exception:  # pragma: no cover - optional dependency, must not crash startup
-        logger.warning("langfuse_init_failed", exc_info=True)
-        _client = None
-        ENABLED = False
-else:
-    logger.info("langfuse_disabled", extra={"reason": "no_keys_configured"})
+    elif _INIT_ERROR:
+        logger.warning("langfuse_init_failed")
+    else:
+        logger.info("langfuse_disabled", extra={"reason": "no_keys_configured"})
 
 
 def record_event(name: str, **fields) -> None:

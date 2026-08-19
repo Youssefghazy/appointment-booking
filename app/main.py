@@ -26,6 +26,7 @@ from app.logging_config import setup_logging
 # as JSON, not just the ones after startup finishes.
 setup_logging()
 logger = logging.getLogger("app")
+observability.log_status()
 
 
 def _log_event(name: str, **fields) -> None:
