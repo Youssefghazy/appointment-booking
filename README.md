@@ -19,6 +19,12 @@ implement → analyze.
   them — behind a single shared passcode (there's no owner account system
   either, just one passcode).
 
+## Demo
+
+![Booking flow demo: a customer picks a day, then a time, then enters their details and confirms; then the owner logs in, sees the booking, and cancels it.](docs/demo.gif)
+
+The customer flow (choose a day → choose a time → enter details → confirmation), then the owner flow (log in with the passcode → see the booking → cancel it) — recorded straight from the running app, no staged screenshots.
+
 ## Project layout
 
 ```text
@@ -51,6 +57,7 @@ specs/001-appointment-booking/   Every Spec Kit pipeline artifact:
 ├── analysis-report.md    Cross-artifact consistency check
 └── checklists/            Spec quality checklist
 .specify/memory/constitution.md   The project's own ground rules
+docs/demo.gif          Screen recording of the full booking + owner flow
 ```
 
 ## Requirements
